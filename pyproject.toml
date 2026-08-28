@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zorveus"
+version = "0.1.0"
+description = "Official Python client library for the Zorveus AI Infrastructure Platform"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Zorveus Inc.", email = "engineering@zorveus.com" }
+]
+keywords = ["zorveus", "ai-gateway", "llm", "openai", "anthropic", "gemini", "sdk"]
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.5.0",
+    "typing-extensions>=4.8.0"
+]
+
+[project.optional-dependencies]
+openai = [
+    "openai>=1.0.0"
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "respx>=0.20.0",
+    "mypy>=1.7.0",
+    "ruff>=0.1.0",
+    "python-dotenv>=1.0.0"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zorveus"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
