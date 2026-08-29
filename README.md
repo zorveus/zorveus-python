@@ -11,9 +11,16 @@ Standard installation:
 pip install zorveus
 ```
 
-With official OpenAI SDK integration extra:
+With framework adapters:
 ```bash
+# OpenAI SDK integration
 pip install zorveus[openai]
+
+# LangChain integration
+pip install zorveus[langchain]
+
+# LlamaIndex integration
+pip install zorveus[llamaindex]
 ```
 
 ---

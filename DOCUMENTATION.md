@@ -169,25 +169,80 @@ asyncio.run(main())
 
 ---
 
-## 4. OpenAI SDK integration (`ZorveusOpenAI` and `AsyncZorveusOpenAI`)
+## 4. Framework Adapters (OpenAI, LangChain, LlamaIndex)
 
-Module: `zorveus.openai`
+Module: `zorveus.openai`, `zorveus.adapters.langchain`, `zorveus.adapters.llamaindex`
 
-`ZorveusOpenAI` and `AsyncZorveusOpenAI` inherit directly from official `openai.OpenAI` and `openai.AsyncOpenAI` classes. They allow developers using the `openai` package to route requests through Zorveus while returning native OpenAI types.
+### 4.1 OpenAI SDK integration (`ZorveusOpenAI` and `AsyncZorveusOpenAI`)
 
-### Constructor
+`ZorveusOpenAI` and `AsyncZorveusOpenAI` inherit directly from official `openai.OpenAI` and `openai.AsyncOpenAI` classes.
+
+```bash
+pip install zorveus[openai]
+```
+
 ```python
-ZorveusOpenAI(
-    api_key: Optional[str] = None,
-    *,
-    gateway_url: Optional[str] = None,
-    external_user_id: Optional[str] = None,
-    display_name: Optional[str] = None,
-    email: Optional[str] = None,
-    user_metadata: Optional[Dict[str, Any]] = None,
-    default_headers: Optional[Mapping[str, str]] = None,
-    **kwargs: Any
+from zorveus.openai import ZorveusOpenAI
+
+client = ZorveusOpenAI(
+    api_key="zrv_live_123...",
+    external_user_id="cus_12345",
+    display_name="Ada Lovelace",
+    email="ada@example.com",
+    user_metadata={"plan": "pro"}
 )
+```
+
+---
+
+### 4.2 LangChain adapter (`ChatZorveus`)
+
+Inherits directly from `ChatOpenAI` in `langchain-openai`.
+
+```bash
+pip install zorveus[langchain]
+```
+
+```python
+from zorveus.adapters.langchain import ChatZorveus
+
+llm = ChatZorveus(
+    api_key="zrv_live_123...",
+    model="openai/gpt-4.1-mini",
+    external_user_id="usr_sara_101",
+    display_name="Sara Connor",
+    email="sara@example.com",
+    user_metadata={"plan": "pro"}
+)
+
+response = llm.invoke("Explain neural networks.")
+print(response.content)
+```
+
+---
+
+### 4.3 LlamaIndex adapter (`ZorveusLLM`)
+
+Inherits directly from `OpenAI` in `llama_index.llms.openai`.
+
+```bash
+pip install zorveus[llamaindex]
+```
+
+```python
+from zorveus.adapters.llamaindex import ZorveusLLM
+
+llm = ZorveusLLM(
+    api_key="zrv_live_123...",
+    model="openai/gpt-4.1-mini",
+    external_user_id="usr_sara_101",
+    display_name="Sara Connor",
+    email="sara@example.com",
+    user_metadata={"plan": "pro"}
+)
+
+response = llm.complete("What is machine learning?")
+print(response.text)
 ```
 
 ### Supported endpoints
