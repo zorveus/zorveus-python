@@ -2,6 +2,8 @@
 
 Official Python client library for the Zorveus AI Infrastructure Platform.
 
+See [DOCUMENTATION.md](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/DOCUMENTATION.md) for full codebase reference documentation and API details.
+
 ## Installation
 
 Standard installation:
