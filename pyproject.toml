@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zorveus"
-version = "0.1.0"
 description = "Official Python client library for the Zorveus AI Infrastructure Platform"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
+dynamic = ["version"]
 authors = [
     { name = "Zorveus Inc.", email = "engineering@zorveus.com" }
 ]
@@ -31,6 +31,9 @@ dev = [
     "ruff>=0.1.0",
     "python-dotenv>=1.0.0"
 ]
+
+[tool.hatch.version]
+path = "src/zorveus/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zorveus"]
