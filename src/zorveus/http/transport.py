@@ -14,6 +14,7 @@ from zorveus.http.sse import parse_sync_sse_stream
 
 T = TypeVar("T", bound=BaseModel)
 
+
 def raise_for_status(response: httpx.Response) -> None:
     """Raises appropriate SDK exception if HTTP response status is 4xx or 5xx."""
     if response.is_success:
@@ -59,10 +60,14 @@ class SyncHTTPTransport:
         self.base_url = base_url.rstrip("/")
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": f"zorveus-python/{__version__}",
+            "User-Agent": f"Zorveus-Python/{__version__}",
             "Content-Type": "application/json",
         }
-        self.client = httpx.Client(base_url=self.base_url, headers=headers, timeout=timeout)
+        self.client = httpx.Client(
+            base_url=self.base_url,
+            headers=headers,
+            timeout=timeout,
+        )
 
     def request(
         self,
@@ -82,14 +87,42 @@ class SyncHTTPTransport:
 
         return response_model.model_validate(response.json())
 
-    def get(self, path: str, *, params: Optional[Dict[str, Any]] = None, response_model: Optional[Type[T]] = None) -> Any:
+    def get(
+        self,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        response_model: Optional[Type[T]] = None,
+    ) -> Any:
         return self.request("GET", path, params=params, response_model=response_model)
 
-    def post(self, path: str, *, json_data: Optional[Dict[str, Any]] = None, response_model: Optional[Type[T]] = None) -> Any:
-        return self.request("POST", path, json_data=json_data, response_model=response_model)
+    def post(
+        self,
+        path: str,
+        *,
+        json_data: Optional[Dict[str, Any]] = None,
+        response_model: Optional[Type[T]] = None,
+    ) -> Any:
+        return self.request(
+            "POST",
+            path,
+            json_data=json_data,
+            response_model=response_model,
+        )
 
-    def put(self, path: str, *, json_data: Optional[Dict[str, Any]] = None, response_model: Optional[Type[T]] = None) -> Any:
-        return self.request("PUT", path, json_data=json_data, response_model=response_model)
+    def put(
+        self,
+        path: str,
+        *,
+        json_data: Optional[Dict[str, Any]] = None,
+        response_model: Optional[Type[T]] = None,
+    ) -> Any:
+        return self.request(
+            "PUT",
+            path,
+            json_data=json_data,
+            response_model=response_model,
+        )
 
     def stream(
         self,

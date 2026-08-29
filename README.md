@@ -104,7 +104,10 @@ from zorveus.openai import ZorveusOpenAI
 
 client = ZorveusOpenAI(
     api_key="zrv_live_123...",
-    external_user_id="usr_sara_101"
+    external_user_id="cus_12345",
+    display_name="Ada Lovelace",
+    email="ada@example.com",
+    user_metadata={"plan": "pro", "workspace_id": "workspace_789"}
 )
 
 response = client.chat.completions.create(
