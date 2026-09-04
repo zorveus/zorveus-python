@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from zorveus._version import __version__
 from zorveus._client import Zorveus, AsyncZorveus
 from zorveus._service_client import ZorveusServiceClient, AsyncZorveusServiceClient
@@ -12,6 +12,10 @@ from zorveus.errors import (
     RateLimitError,
     InvalidDecimalError,
 )
+
+if TYPE_CHECKING:
+    from zorveus.openai import ZorveusOpenAI, AsyncZorveusOpenAI
+
 
 def __getattr__(name: str) -> Any:
     if name in ("ZorveusOpenAI", "AsyncZorveusOpenAI"):

@@ -14,6 +14,7 @@ from zorveus.types.product_users import (
     CreditSummary,
     CreditGrant,
     ProductUserResponse,
+    UpsertProductUserResponse,
     GrantCreditResponse,
 )
 from zorveus.types.provider_credentials import (
@@ -37,6 +38,7 @@ __all__ = [
     "CreditSummary",
     "CreditGrant",
     "ProductUserResponse",
+    "UpsertProductUserResponse",
     "GrantCreditResponse",
     "ProviderCredential",
     "ProviderCredentialResponse",
