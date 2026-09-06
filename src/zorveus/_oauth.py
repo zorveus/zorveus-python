@@ -18,6 +18,10 @@ class TokenResponse(BaseModel):
     token_type: str = "Bearer"
     app_connection_id: Optional[str] = None
     funding_org_id: Optional[str] = None
+    expires_in: Optional[int] = None
+    scope: Optional[str] = None
+    api_base: Optional[str] = None
+
 
 class ValidationResult(BaseModel):
     valid: bool

@@ -1,15 +1,52 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
 
-class ProviderCredential(BaseModel):
-    id: str
-    app_id: str
+
+class ProviderCredentialResponse(BaseModel):
+    provider_credential_id: Optional[str] = None
+    id: Optional[str] = None
+    org_id: Optional[str] = None
+    app_id: Optional[str] = None
     provider: str
+    credential_name: Optional[str] = None
+    status: Optional[str] = "active"
+    routing_health: Optional[str] = "ready"
+    routing_mode: Optional[str] = "auto_resolve"
+    routing_priority: Optional[int] = 100
+    default_model_policy: Optional[List[str]] = Field(default_factory=list)
+    provider_config: Optional[Dict[str, Any]] = None
+    active_secret_version_id: Optional[str] = None
+    secret_fingerprint: Optional[str] = None
+    last_validated_at: Optional[str] = None
+    last_used_at: Optional[str] = None
+    last_quota_exhausted_at: Optional[str] = None
+    cooldown_expires_at: Optional[str] = None
+    last_error_code: Optional[str] = None
+    last_error_message: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-class ProviderCredentialResponse(BaseModel):
-    provider_credential: ProviderCredential
+    def model_post_init(self, __context: Any) -> None:
+        if not self.id and self.provider_credential_id:
+            self.id = self.provider_credential_id
+        elif not self.provider_credential_id and self.id:
+            self.provider_credential_id = self.id
+
+    @property
+    def provider_credential(self) -> "ProviderCredentialResponse":
+        return self
+
 
 class ProviderCredentialListResponse(BaseModel):
-    data: List[ProviderCredential]
+    provider_credentials: List[ProviderCredentialResponse] = Field(default_factory=list)
+    data: List[ProviderCredentialResponse] = Field(default_factory=list)
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.data and self.provider_credentials:
+            self.data = self.provider_credentials
+        elif not self.provider_credentials and self.data:
+            self.provider_credentials = self.data
+
+
+ProviderCredential = ProviderCredentialResponse
+
