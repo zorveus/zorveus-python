@@ -47,7 +47,21 @@ class AsyncHTTPTransport:
         if response_model is None:
             return response.json()
 
-        return response_model.model_validate(response.json())
+        model_instance = response_model.model_validate(response.json())
+        req_id = response.headers.get("x-zorveus-request-id")
+        res_id = response.headers.get("x-zorveus-reservation-id")
+        if req_id and hasattr(model_instance, "request_id") and getattr(model_instance, "request_id") is None:
+            try:
+                setattr(model_instance, "request_id", req_id)
+            except Exception:
+                pass
+        if res_id and hasattr(model_instance, "reservation_id") and getattr(model_instance, "reservation_id") is None:
+            try:
+                setattr(model_instance, "reservation_id", res_id)
+            except Exception:
+                pass
+
+        return model_instance
 
     async def get(
         self,
@@ -88,6 +102,34 @@ class AsyncHTTPTransport:
             "PUT",
             path,
             json_data=json_data,
+            response_model=response_model,
+        )
+
+    async def patch(
+        self,
+        path: str,
+        *,
+        json_data: Optional[Dict[str, Any]] = None,
+        response_model: Optional[Type[T]] = None,
+    ) -> Any:
+        return await self.request(
+            "PATCH",
+            path,
+            json_data=json_data,
+            response_model=response_model,
+        )
+
+    async def delete(
+        self,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        response_model: Optional[Type[T]] = None,
+    ) -> Any:
+        return await self.request(
+            "DELETE",
+            path,
+            params=params,
             response_model=response_model,
         )
 

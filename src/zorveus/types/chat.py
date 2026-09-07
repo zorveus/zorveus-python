@@ -24,6 +24,8 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: List[ChatCompletionChoice]
     usage: Optional[ChatCompletionUsage] = None
+    request_id: Optional[str] = None
+    reservation_id: Optional[str] = None
 
 class ChatCompletionChunkDelta(BaseModel):
     role: Optional[str] = None
@@ -40,3 +42,5 @@ class ChatCompletionChunk(BaseModel):
     created: int
     model: str
     choices: List[ChatCompletionChunkChoice]
+    request_id: Optional[str] = None
+    reservation_id: Optional[str] = None

@@ -145,3 +145,111 @@ async def test_async_product_user_get_and_grant():
     assert user.product_end_user_id == "peu_101"
     assert user.credits.available_credits == "25.000000000000"
 
+
+@respx.mock
+def test_product_user_credit_summary_and_grants_list():
+    service = ZorveusServiceClient(api_key="zrv_svc_test")
+
+    summary_data = {
+        "currency": "USD",
+        "available_credits": "15.500000000000",
+        "active_grant_count": 2,
+        "expiring_soon_amount": "0.000000000000",
+        "spent_this_month": "5.000000000000",
+        "spent_total": "10.000000000000",
+        "last_grant_at": None,
+        "last_used_at": None,
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id/credit-summary").mock(
+        return_value=httpx.Response(200, json=summary_data)
+    )
+
+    summary = service.product_users.get_credit_summary_by_external_id(
+        app_id="app_123",
+        external_user_id="ext_101",
+    )
+    assert summary.available_credits == "15.500000000000"
+    assert summary.active_grant_count == 2
+    assert summary.spent_this_month == "5.000000000000"
+
+    grants_data = {
+        "credit_grants": [
+            {
+                "credit_grant_id": "cgrt_1",
+                "org_id": "org_123",
+                "app_id": "app_123",
+                "product_end_user_id": "peu_101",
+                "amount": "10.000000000000",
+                "remaining_amount": "10.000000000000",
+                "currency": "USD",
+                "source": "promotion",
+                "status": "active",
+            }
+        ]
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id/credit-grants").mock(
+        return_value=httpx.Response(200, json=grants_data)
+    )
+
+    grants_list = service.product_users.list_credit_grants_by_external_id(
+        app_id="app_123",
+        external_user_id="ext_101",
+        status="active",
+    )
+    assert len(grants_list.credit_grants) == 1
+    assert grants_list.credit_grants[0].credit_grant_id == "cgrt_1"
+    assert grants_list.credit_grants[0].remaining_amount == "10.000000000000"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_product_user_credit_summary_and_grants():
+    service = AsyncZorveusServiceClient(api_key="zrv_svc_test")
+
+    summary_data = {
+        "currency": "USD",
+        "available_credits": "30.000000000000",
+        "active_grant_count": 1,
+        "expiring_soon_amount": "0.000000000000",
+        "spent_this_month": "0.000000000000",
+        "spent_total": "0.000000000000",
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id/credit-summary").mock(
+        return_value=httpx.Response(200, json=summary_data)
+    )
+
+    summary = await service.product_users.get_credit_summary_by_external_id(
+        app_id="app_123",
+        external_user_id="ext_101",
+    )
+    assert summary.available_credits == "30.000000000000"
+
+    grants_data = {
+        "credit_grants": [
+            {
+                "credit_grant_id": "cgrt_2",
+                "org_id": "org_123",
+                "app_id": "app_123",
+                "product_end_user_id": "peu_101",
+                "amount": "30.000000000000",
+                "remaining_amount": "30.000000000000",
+                "currency": "USD",
+                "status": "active",
+            }
+        ]
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id/credit-grants").mock(
+        return_value=httpx.Response(200, json=grants_data)
+    )
+
+    grants = await service.product_users.list_credit_grants_by_external_id(
+        app_id="app_123",
+        external_user_id="ext_101",
+    )
+    assert len(grants.credit_grants) == 1
+    assert grants.credit_grants[0].credit_grant_id == "cgrt_2"
+

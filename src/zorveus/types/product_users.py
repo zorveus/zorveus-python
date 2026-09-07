@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, field_validator
 from zorveus.utils.decimal import validate_decimal_string
 
@@ -38,6 +38,9 @@ class CreditSummary(BaseModel):
         return validate_decimal_string(str(v))
 
 
+ProductUserCreditSummaryResponse = CreditSummary
+
+
 class CreditGrant(BaseModel):
     credit_grant_id: Optional[str] = None
     id: Optional[str] = None
@@ -73,6 +76,10 @@ class CreditGrant(BaseModel):
         if v is None:
             return None
         return validate_decimal_string(str(v))
+
+
+class ProductUserCreditGrantListResponse(BaseModel):
+    credit_grants: List[CreditGrant]
 
 
 class ProductUserResponse(BaseModel):
@@ -116,5 +123,6 @@ class GrantCreditResponse(BaseModel):
     credit_summary: CreditSummary
 
 
+GrantProductUserCreditsResponse = GrantCreditResponse
 ProductUser = ProductUserResponse
 

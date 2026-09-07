@@ -12,12 +12,13 @@ class ZorveusServiceClient:
         self,
         api_key: Optional[str] = None,
         *,
+        service_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
     ) -> None:
-        key = api_key or os.environ.get("ZORVEUS_SERVICE_KEY")
+        key = service_key or api_key or os.environ.get("ZORVEUS_SERVICE_KEY")
         if not key:
-            raise ValueError("Service key is required. Pass api_key or set ZORVEUS_SERVICE_KEY.")
+            raise ValueError("Service key is required. Pass service_key, api_key, or set ZORVEUS_SERVICE_KEY.")
 
         url = base_url or os.environ.get("ZORVEUS_BASE_URL", "https://api.zorveus.com")
         self._transport = SyncHTTPTransport(api_key=key, base_url=url, timeout=timeout)
@@ -36,12 +37,13 @@ class AsyncZorveusServiceClient:
         self,
         api_key: Optional[str] = None,
         *,
+        service_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
     ) -> None:
-        key = api_key or os.environ.get("ZORVEUS_SERVICE_KEY")
+        key = service_key or api_key or os.environ.get("ZORVEUS_SERVICE_KEY")
         if not key:
-            raise ValueError("Service key is required. Pass api_key or set ZORVEUS_SERVICE_KEY.")
+            raise ValueError("Service key is required. Pass service_key, api_key, or set ZORVEUS_SERVICE_KEY.")
 
         url = base_url or os.environ.get("ZORVEUS_BASE_URL", "https://api.zorveus.com")
         self._transport = AsyncHTTPTransport(api_key=key, base_url=url, timeout=timeout)

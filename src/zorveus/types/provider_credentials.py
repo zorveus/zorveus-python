@@ -47,6 +47,31 @@ class ProviderCredentialListResponse(BaseModel):
         elif not self.provider_credentials and self.data:
             self.provider_credentials = self.data
 
+    @property
+    def credentials(self) -> List[ProviderCredentialResponse]:
+        return self.provider_credentials
+
+
+class RotateProviderCredentialResponse(BaseModel):
+    provider_credential: ProviderCredentialResponse
+    rotated: bool = True
+
+
+class UpdateProviderCredentialRoutingPriorityResponse(BaseModel):
+    provider_credential: ProviderCredentialResponse
+
+
+class DeleteProviderCredentialResponse(BaseModel):
+    provider_credential: ProviderCredentialResponse
+    deleted: bool = True
+    revoked_grant_count: int = 0
+    retired_version_count: int = 0
+
+
+class GrantProviderCredentialResponse(BaseModel):
+    grant: Dict[str, Any]
+
 
 ProviderCredential = ProviderCredentialResponse
+
 

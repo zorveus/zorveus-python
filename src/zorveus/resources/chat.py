@@ -20,6 +20,8 @@ class CompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: Literal[True],
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -34,6 +36,8 @@ class CompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: Literal[False] = False,
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -47,6 +51,8 @@ class CompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: bool = False,
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -72,8 +78,19 @@ class CompletionsResource:
             payload["top_p"] = top_p
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        if zorveus_metadata is not None:
-            payload["zorveus_metadata"] = zorveus_metadata
+        if user is not None:
+            payload["user"] = user
+
+        metadata = dict(payload.get("metadata") or {})
+        if zorveus_metadata:
+            metadata.update(zorveus_metadata)
+        if product_end_user_id and "product_end_user_id" not in metadata:
+            metadata["product_end_user_id"] = product_end_user_id
+        if user and "external_user_id" not in metadata:
+            metadata["external_user_id"] = user
+        if metadata:
+            payload["metadata"] = metadata
+            payload["zorveus_metadata"] = metadata
 
         if stream:
             return self._transport.stream(
@@ -103,6 +120,8 @@ class AsyncCompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: Literal[True],
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -117,6 +136,8 @@ class AsyncCompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: Literal[False] = False,
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -130,6 +151,8 @@ class AsyncCompletionsResource:
         model: str,
         messages: List[Union[ChatMessage, Dict[str, Any]]],
         stream: bool = False,
+        user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
@@ -155,8 +178,19 @@ class AsyncCompletionsResource:
             payload["top_p"] = top_p
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        if zorveus_metadata is not None:
-            payload["zorveus_metadata"] = zorveus_metadata
+        if user is not None:
+            payload["user"] = user
+
+        metadata = dict(payload.get("metadata") or {})
+        if zorveus_metadata:
+            metadata.update(zorveus_metadata)
+        if product_end_user_id and "product_end_user_id" not in metadata:
+            metadata["product_end_user_id"] = product_end_user_id
+        if user and "external_user_id" not in metadata:
+            metadata["external_user_id"] = user
+        if metadata:
+            payload["metadata"] = metadata
+            payload["zorveus_metadata"] = metadata
 
         if stream:
             return await self._transport.stream(

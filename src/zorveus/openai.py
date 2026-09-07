@@ -14,17 +14,26 @@ except ImportError:
 def _merge_zorveus_metadata(
     existing_extra_body: Optional[Dict[str, Any]],
     client_ext_id: Optional[str],
+    client_peu_id: Optional[str],
     client_display_name: Optional[str],
     client_email: Optional[str],
     client_user_metadata: Optional[Dict[str, Any]],
     kwargs: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
+    user_param = kwargs.get("user")
     ext_id = kwargs.pop("external_user_id", client_ext_id)
-    display_name = kwargs.pop("display_name", client_display_name)
-    email = kwargs.pop("email", client_email)
-    user_meta = kwargs.pop("user_metadata", client_user_metadata)
+    if not ext_id and user_param:
+        ext_id = str(user_param)
+    elif ext_id and not user_param:
+        kwargs["user"] = ext_id
 
-    if not any([ext_id, display_name, email, user_meta]):
+    peu_id = kwargs.pop("product_end_user_id", client_peu_id)
+    display_name = kwargs.pop("display_name", client_display_name) or kwargs.pop("product_user_display_name", None)
+    email = kwargs.pop("email", client_email) or kwargs.pop("product_user_email", None)
+    user_meta = kwargs.pop("user_metadata", client_user_metadata)
+    product_user_arg = kwargs.pop("product_user", None)
+
+    if not any([ext_id, peu_id, display_name, email, user_meta, product_user_arg]):
         return existing_extra_body
 
     extra_body = dict(existing_extra_body or {})
@@ -33,7 +42,12 @@ def _merge_zorveus_metadata(
     if ext_id and "external_user_id" not in metadata:
         metadata["external_user_id"] = ext_id
 
+    if peu_id and "product_end_user_id" not in metadata:
+        metadata["product_end_user_id"] = peu_id
+
     product_user = dict(metadata.get("product_user") or {})
+    if isinstance(product_user_arg, dict):
+        product_user.update(product_user_arg)
     if display_name and "display_name" not in product_user:
         product_user["display_name"] = display_name
     if email and "email" not in product_user:
@@ -53,12 +67,14 @@ class _ZorveusCompletionsWrapper:
         self,
         completions_resource: Any,
         client_ext_id: Optional[str],
+        client_peu_id: Optional[str],
         client_display_name: Optional[str],
         client_email: Optional[str],
         client_user_metadata: Optional[Dict[str, Any]],
     ) -> None:
         self._completions = completions_resource
         self._ext_id = client_ext_id
+        self._peu_id = client_peu_id
         self._display_name = client_display_name
         self._email = client_email
         self._user_metadata = client_user_metadata
@@ -67,6 +83,7 @@ class _ZorveusCompletionsWrapper:
         extra_body = _merge_zorveus_metadata(
             kwargs.get("extra_body"),
             self._ext_id,
+            self._peu_id,
             self._display_name,
             self._email,
             self._user_metadata,
@@ -86,12 +103,14 @@ class _AsyncZorveusCompletionsWrapper:
         self,
         completions_resource: Any,
         client_ext_id: Optional[str],
+        client_peu_id: Optional[str],
         client_display_name: Optional[str],
         client_email: Optional[str],
         client_user_metadata: Optional[Dict[str, Any]],
     ) -> None:
         self._completions = completions_resource
         self._ext_id = client_ext_id
+        self._peu_id = client_peu_id
         self._display_name = client_display_name
         self._email = client_email
         self._user_metadata = client_user_metadata
@@ -100,6 +119,7 @@ class _AsyncZorveusCompletionsWrapper:
         extra_body = _merge_zorveus_metadata(
             kwargs.get("extra_body"),
             self._ext_id,
+            self._peu_id,
             self._display_name,
             self._email,
             self._user_metadata,
@@ -119,12 +139,14 @@ class _ZorveusResponsesWrapper:
         self,
         responses_resource: Any,
         client_ext_id: Optional[str],
+        client_peu_id: Optional[str],
         client_display_name: Optional[str],
         client_email: Optional[str],
         client_user_metadata: Optional[Dict[str, Any]],
     ) -> None:
         self._responses = responses_resource
         self._ext_id = client_ext_id
+        self._peu_id = client_peu_id
         self._display_name = client_display_name
         self._email = client_email
         self._user_metadata = client_user_metadata
@@ -133,6 +155,7 @@ class _ZorveusResponsesWrapper:
         extra_body = _merge_zorveus_metadata(
             kwargs.get("extra_body"),
             self._ext_id,
+            self._peu_id,
             self._display_name,
             self._email,
             self._user_metadata,
@@ -152,12 +175,14 @@ class _AsyncZorveusResponsesWrapper:
         self,
         responses_resource: Any,
         client_ext_id: Optional[str],
+        client_peu_id: Optional[str],
         client_display_name: Optional[str],
         client_email: Optional[str],
         client_user_metadata: Optional[Dict[str, Any]],
     ) -> None:
         self._responses = responses_resource
         self._ext_id = client_ext_id
+        self._peu_id = client_peu_id
         self._display_name = client_display_name
         self._email = client_email
         self._user_metadata = client_user_metadata
@@ -166,6 +191,7 @@ class _AsyncZorveusResponsesWrapper:
         extra_body = _merge_zorveus_metadata(
             kwargs.get("extra_body"),
             self._ext_id,
+            self._peu_id,
             self._display_name,
             self._email,
             self._user_metadata,
@@ -189,6 +215,7 @@ class ZorveusOpenAI(_OpenAI):
         *,
         gateway_url: Optional[str] = None,
         external_user_id: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         display_name: Optional[str] = None,
         email: Optional[str] = None,
         user_metadata: Optional[Dict[str, Any]] = None,
@@ -218,11 +245,21 @@ class ZorveusOpenAI(_OpenAI):
         )
 
         self.chat.completions = _ZorveusCompletionsWrapper(  # type: ignore
-            self.chat.completions, external_user_id, display_name, email, user_metadata
+            self.chat.completions,
+            external_user_id,
+            product_end_user_id,
+            display_name,
+            email,
+            user_metadata,
         )
         if hasattr(self, "responses") and getattr(self, "responses") is not None:
             self.responses = _ZorveusResponsesWrapper(  # type: ignore
-                self.responses, external_user_id, display_name, email, user_metadata
+                self.responses,
+                external_user_id,
+                product_end_user_id,
+                display_name,
+                email,
+                user_metadata,
             )
 
 
@@ -235,6 +272,7 @@ class AsyncZorveusOpenAI(_AsyncOpenAI):
         *,
         gateway_url: Optional[str] = None,
         external_user_id: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         display_name: Optional[str] = None,
         email: Optional[str] = None,
         user_metadata: Optional[Dict[str, Any]] = None,
@@ -264,9 +302,19 @@ class AsyncZorveusOpenAI(_AsyncOpenAI):
         )
 
         self.chat.completions = _AsyncZorveusCompletionsWrapper(  # type: ignore
-            self.chat.completions, external_user_id, display_name, email, user_metadata
+            self.chat.completions,
+            external_user_id,
+            product_end_user_id,
+            display_name,
+            email,
+            user_metadata,
         )
         if hasattr(self, "responses") and getattr(self, "responses") is not None:
             self.responses = _AsyncZorveusResponsesWrapper(  # type: ignore
-                self.responses, external_user_id, display_name, email, user_metadata
+                self.responses,
+                external_user_id,
+                product_end_user_id,
+                display_name,
+                email,
+                user_metadata,
             )

@@ -74,3 +74,28 @@ def test_zorveus_openai_responses_wrapper():
                 }
             }
             assert kwargs["extra_body"] == expected_body
+
+
+@pytest.mark.skipif(not HAS_OPENAI, reason="openai package not installed")
+def test_zorveus_openai_user_param_and_product_end_user_id():
+    client = ZorveusOpenAI(
+        api_key="zrv_test_key",
+        product_end_user_id="peu_init_999",
+    )
+
+    mock_create = MagicMock(return_value={"id": "chatcmpl-mock"})
+    with patch.object(client.chat.completions._completions, "create", mock_create):
+        client.chat.completions.create(
+            model="openai/gpt-4o",
+            messages=[{"role": "user", "content": "hello"}],
+            user="usr_std_open_ai",
+            extra_body={"metadata": {"product_user": {"display_name": "Test User"}}},
+        )
+
+        mock_create.assert_called_once()
+        _, kwargs = mock_create.call_args
+        assert kwargs["user"] == "usr_std_open_ai"
+        assert kwargs["extra_body"]["metadata"]["external_user_id"] == "usr_std_open_ai"
+        assert kwargs["extra_body"]["metadata"]["product_end_user_id"] == "peu_init_999"
+        assert kwargs["extra_body"]["metadata"]["product_user"]["display_name"] == "Test User"
+

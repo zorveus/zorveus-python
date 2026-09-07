@@ -5,6 +5,8 @@ from zorveus.types.product_users import (
     ProductUserResponse,
     UpsertProductUserResponse,
     GrantCreditResponse,
+    ProductUserCreditSummaryResponse,
+    ProductUserCreditGrantListResponse,
 )
 from zorveus.utils.decimal import validate_decimal_string
 
@@ -48,6 +50,51 @@ class ProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
+        )
+
+    def get_credit_summary_by_external_id(
+        self,
+        *,
+        app_id: str,
+        external_user_id: str,
+        currency: str = "USD",
+    ) -> ProductUserCreditSummaryResponse:
+        """Retrieves live credit summary for a product user by external ID."""
+        params = {
+            "app_id": app_id,
+            "external_user_id": external_user_id,
+            "currency": currency,
+        }
+        return self._transport.get(
+            "/product-users/by-external-id/credit-summary",
+            params=params,
+            response_model=ProductUserCreditSummaryResponse,
+        )
+
+    def list_credit_grants_by_external_id(
+        self,
+        *,
+        app_id: str,
+        external_user_id: str,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        limit: int = 100,
+    ) -> ProductUserCreditGrantListResponse:
+        """Lists credit grants for a product user by external ID."""
+        params: Dict[str, Any] = {
+            "app_id": app_id,
+            "external_user_id": external_user_id,
+            "limit": limit,
+        }
+        if status is not None:
+            params["status"] = status
+        if source is not None:
+            params["source"] = source
+
+        return self._transport.get(
+            "/product-users/by-external-id/credit-grants",
+            params=params,
+            response_model=ProductUserCreditGrantListResponse,
         )
 
     def grant_credit_by_external_id(
@@ -124,6 +171,51 @@ class AsyncProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
+        )
+
+    async def get_credit_summary_by_external_id(
+        self,
+        *,
+        app_id: str,
+        external_user_id: str,
+        currency: str = "USD",
+    ) -> ProductUserCreditSummaryResponse:
+        """Retrieves live credit summary for a product user by external ID asynchronously."""
+        params = {
+            "app_id": app_id,
+            "external_user_id": external_user_id,
+            "currency": currency,
+        }
+        return await self._transport.get(
+            "/product-users/by-external-id/credit-summary",
+            params=params,
+            response_model=ProductUserCreditSummaryResponse,
+        )
+
+    async def list_credit_grants_by_external_id(
+        self,
+        *,
+        app_id: str,
+        external_user_id: str,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        limit: int = 100,
+    ) -> ProductUserCreditGrantListResponse:
+        """Lists credit grants for a product user by external ID asynchronously."""
+        params: Dict[str, Any] = {
+            "app_id": app_id,
+            "external_user_id": external_user_id,
+            "limit": limit,
+        }
+        if status is not None:
+            params["status"] = status
+        if source is not None:
+            params["source"] = source
+
+        return await self._transport.get(
+            "/product-users/by-external-id/credit-grants",
+            params=params,
+            response_model=ProductUserCreditGrantListResponse,
         )
 
     async def grant_credit_by_external_id(
