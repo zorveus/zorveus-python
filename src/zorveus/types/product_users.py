@@ -12,6 +12,9 @@ class CreditSummary(BaseModel):
     spent_total: Optional[str] = None
     last_grant_at: Optional[str] = None
     last_used_at: Optional[str] = None
+    # Amount beyond the cap and available credits in track_only or overrun cases.
+    # Zero means the request was fully covered.
+    uncovered_virtual_spend: Optional[str] = None
     # For backward compatibility
     total_granted: Optional[str] = None
     total_spent: Optional[str] = None

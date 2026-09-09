@@ -11,6 +11,7 @@ from zorveus.errors import (
     ProductUserAllowanceInsufficientError,
     ProductUserAllowanceInsufficientParams,
     CapExceededError,
+    InvalidProductUserError,
     AppConnectionNotFoundError,
     NotFoundError,
     ConflictError,
@@ -18,6 +19,7 @@ from zorveus.errors import (
     RateLimitError,
     InvalidDecimalError,
 )
+from zorveus.types.usage import UsageEvent, UsageEventListResponse
 
 if TYPE_CHECKING:
     from zorveus.openai import ZorveusOpenAI, AsyncZorveusOpenAI
@@ -46,12 +48,15 @@ __all__ = [
     "ProductUserAllowanceInsufficientError",
     "ProductUserAllowanceInsufficientParams",
     "CapExceededError",
+    "InvalidProductUserError",
     "AppConnectionNotFoundError",
     "NotFoundError",
     "ConflictError",
     "UnprocessableEntityError",
     "RateLimitError",
     "InvalidDecimalError",
+    "UsageEvent",
+    "UsageEventListResponse",
     "ZorveusOpenAI",
     "AsyncZorveusOpenAI",
 ]

@@ -15,6 +15,8 @@ class ProductUserAllowanceInsufficientParams:
     active_reservations_amount: Optional[Decimal] = None
     remaining_base_allowance: Optional[Decimal] = None
     promotional_credit_balance: Optional[Decimal] = None
+    promotional_grant_remaining: Optional[Decimal] = None
+    paid_grant_remaining: Optional[Decimal] = None
     available_allowance: Optional[Decimal] = None
     estimated_request_cost: Optional[Decimal] = None
     shortfall: Optional[Decimal] = None
@@ -41,6 +43,8 @@ class ProductUserAllowanceInsufficientParams:
             active_reservations_amount=parse_decimal(data.get("active_reservations_amount")),
             remaining_base_allowance=parse_decimal(data.get("remaining_base_allowance")),
             promotional_credit_balance=parse_decimal(data.get("promotional_credit_balance")),
+            promotional_grant_remaining=parse_decimal(data.get("promotional_grant_remaining")),
+            paid_grant_remaining=parse_decimal(data.get("paid_grant_remaining")),
             available_allowance=parse_decimal(data.get("available_allowance")),
             estimated_request_cost=parse_decimal(data.get("estimated_request_cost")),
             shortfall=parse_decimal(data.get("shortfall")),
@@ -106,6 +110,14 @@ class ProductUserAllowanceInsufficientError(PermissionDeniedError):
 
 class CapExceededError(PermissionDeniedError):
     """Raised when an inference key or organization cap is exceeded."""
+
+
+class InvalidProductUserError(PermissionDeniedError):
+    """Raised when the supplied product-user identifier cannot be resolved for the org and app.
+
+    The guide requires this to be a distinct 403 from allowance exhaustion.
+    Do not treat an invalid product-user identifier as an absent product user.
+    """
 
 
 class AppConnectionNotFoundError(PermissionDeniedError):

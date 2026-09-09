@@ -10,6 +10,7 @@ from zorveus.errors import (
     ProductUserAllowanceInsufficientError,
     ProductUserAllowanceInsufficientParams,
     CapExceededError,
+    InvalidProductUserError,
     AppConnectionNotFoundError,
     NotFoundError,
     ConflictError,
@@ -99,6 +100,24 @@ def raise_for_status(response: httpx.Response) -> None:
 
         if normalized_code == "zorveus_cap_exceeded" or "cap_exceed" in normalized_code:
             raise CapExceededError(
+                message,
+                status_code=status,
+                raw_body=raw_body,
+                code=code,
+                request_id=request_id,
+                reservation_id=reservation_id,
+            )
+
+        if (
+            normalized_code in (
+                "zorveus_product_user_not_found",
+                "zorveus_invalid_product_user",
+                "zorveus_product_user_identity_error",
+            )
+            or "product_user_not_found" in normalized_code
+            or "invalid_product_user" in normalized_code
+        ):
+            raise InvalidProductUserError(
                 message,
                 status_code=status,
                 raw_body=raw_body,
