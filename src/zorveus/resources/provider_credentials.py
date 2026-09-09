@@ -8,6 +8,7 @@ from zorveus.types.provider_credentials import (
     UpdateProviderCredentialRoutingPriorityResponse,
     DeleteProviderCredentialResponse,
     GrantProviderCredentialResponse,
+    ProviderCatalogResponse,
 )
 
 class ProviderCredentialsResource:
@@ -35,6 +36,7 @@ class ProviderCredentialsResource:
             "provider": provider,
             "credential_name": name,
             "secret": api_key,
+            "api_key": api_key,
             "secret_kind": secret_kind,
             "routing_mode": routing_mode,
             "routing_priority": routing_priority,
@@ -61,6 +63,17 @@ class ProviderCredentialsResource:
             response_model=ProviderCredentialListResponse,
         )
 
+    def get(self, provider_credential_id: str) -> ProviderCredentialResponse:
+        return self._transport.get(
+            f"/provider-credentials/org-programmatic/{provider_credential_id}",
+            response_model=ProviderCredentialResponse,
+        )
+
+    def list_providers(self) -> ProviderCatalogResponse:
+        return self._transport.get(
+            "/provider-credentials/providers", response_model=ProviderCatalogResponse
+        )
+
     def rotate(
         self,
         *,
@@ -71,6 +84,7 @@ class ProviderCredentialsResource:
         """Rotates the secret key of an existing provider credential."""
         payload = {
             "secret": api_key,
+            "api_key": api_key,
             "secret_kind": secret_kind,
         }
         return self._transport.post(
@@ -172,6 +186,17 @@ class AsyncProviderCredentialsResource:
             "/provider-credentials/org-programmatic",
             params=params or None,
             response_model=ProviderCredentialListResponse,
+        )
+
+    async def get(self, provider_credential_id: str) -> ProviderCredentialResponse:
+        return await self._transport.get(
+            f"/provider-credentials/org-programmatic/{provider_credential_id}",
+            response_model=ProviderCredentialResponse,
+        )
+
+    async def list_providers(self) -> ProviderCatalogResponse:
+        return await self._transport.get(
+            "/provider-credentials/providers", response_model=ProviderCatalogResponse
         )
 
     async def rotate(

@@ -3,10 +3,12 @@ from zorveus.http.transport import SyncHTTPTransport
 from zorveus.http.async_transport import AsyncHTTPTransport
 from zorveus.types.product_users import (
     ProductUserResponse,
+    ProductUserListResponse,
     UpsertProductUserResponse,
     GrantCreditResponse,
     ProductUserCreditSummaryResponse,
     ProductUserCreditGrantListResponse,
+    RevokeCreditResponse,
 )
 from zorveus.utils.decimal import validate_decimal_string
 
@@ -50,6 +52,19 @@ class ProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
+        )
+
+    def list(
+        self, *, org_id: Optional[str] = None, app_id: Optional[str] = None,
+        limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> ProductUserListResponse:
+        params = {
+            key: value for key, value in {
+                "org_id": org_id, "app_id": app_id, "limit": limit, "offset": offset
+            }.items() if value is not None
+        }
+        return self._transport.get(
+            "/product-users", params=params or None, response_model=ProductUserListResponse
         )
 
     def get_credit_summary_by_external_id(
@@ -103,6 +118,7 @@ class ProductUsersResource:
         app_id: str,
         external_user_id: str,
         amount: str,
+        currency: str = "USD",
         source: Optional[str] = None,
         reason: Optional[str] = None,
         expires_at: Optional[str] = None,
@@ -114,6 +130,7 @@ class ProductUsersResource:
             "app_id": app_id,
             "external_user_id": external_user_id,
             "amount": valid_amount,
+            "currency": currency,
         }
         if source is not None:
             payload["source"] = source
@@ -128,6 +145,14 @@ class ProductUsersResource:
             "/product-users/by-external-id/credit-grants",
             json_data=payload,
             response_model=GrantCreditResponse,
+        )
+
+    def revoke_credit(
+        self, product_end_user_id: str, credit_grant_id: str
+    ) -> RevokeCreditResponse:
+        return self._transport.post(
+            f"/product-users/{product_end_user_id}/credit-grants/{credit_grant_id}/revoke",
+            response_model=RevokeCreditResponse,
         )
 
 
@@ -171,6 +196,19 @@ class AsyncProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
+        )
+
+    async def list(
+        self, *, org_id: Optional[str] = None, app_id: Optional[str] = None,
+        limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> ProductUserListResponse:
+        params = {
+            key: value for key, value in {
+                "org_id": org_id, "app_id": app_id, "limit": limit, "offset": offset
+            }.items() if value is not None
+        }
+        return await self._transport.get(
+            "/product-users", params=params or None, response_model=ProductUserListResponse
         )
 
     async def get_credit_summary_by_external_id(
@@ -224,6 +262,7 @@ class AsyncProductUsersResource:
         app_id: str,
         external_user_id: str,
         amount: str,
+        currency: str = "USD",
         source: Optional[str] = None,
         reason: Optional[str] = None,
         expires_at: Optional[str] = None,
@@ -235,6 +274,7 @@ class AsyncProductUsersResource:
             "app_id": app_id,
             "external_user_id": external_user_id,
             "amount": valid_amount,
+            "currency": currency,
         }
         if source is not None:
             payload["source"] = source
@@ -249,4 +289,12 @@ class AsyncProductUsersResource:
             "/product-users/by-external-id/credit-grants",
             json_data=payload,
             response_model=GrantCreditResponse,
+        )
+
+    async def revoke_credit(
+        self, product_end_user_id: str, credit_grant_id: str
+    ) -> RevokeCreditResponse:
+        return await self._transport.post(
+            f"/product-users/{product_end_user_id}/credit-grants/{credit_grant_id}/revoke",
+            response_model=RevokeCreditResponse,
         )

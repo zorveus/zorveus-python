@@ -98,3 +98,16 @@ class UsageEventListResponse(BaseModel):
     has_more: bool = False
     limit: Optional[int] = None
 
+
+def normal_input_tokens(event: UsageEvent) -> Optional[int]:
+    """Returns uncached input tokens when the gateway reported a breakdown."""
+    if event.cache_usage_breakdown_status != "reported" or event.input_tokens is None:
+        return None
+    return max(
+        0,
+        event.input_tokens
+        - event.cache_read_input_tokens
+        - event.cache_creation_input_tokens
+        - event.cache_creation_1h_input_tokens,
+    )
+

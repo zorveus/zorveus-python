@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 from zorveus.resources.chat import ChatResource, AsyncChatResource
+from zorveus.resources.embeddings import EmbeddingsResource, AsyncEmbeddingsResource
 from zorveus.resources.models import ModelsResource, AsyncModelsResource
 from zorveus.types.usage import UsageResponse
 from zorveus.http.transport import SyncHTTPTransport
@@ -31,6 +32,7 @@ class Zorveus:
         self._control_transport = SyncHTTPTransport(api_key=key, base_url=control_base, timeout=timeout)
 
         self.chat = ChatResource(self._transport)
+        self.embeddings = EmbeddingsResource(self._transport)
         self.models = ModelsResource(self._transport)
 
     def get_usage(self) -> UsageResponse:
@@ -67,6 +69,7 @@ class AsyncZorveus:
         self._control_transport = AsyncHTTPTransport(api_key=key, base_url=control_base, timeout=timeout)
 
         self.chat = AsyncChatResource(self._transport)
+        self.embeddings = AsyncEmbeddingsResource(self._transport)
         self.models = AsyncModelsResource(self._transport)
 
     async def get_usage(self) -> UsageResponse:

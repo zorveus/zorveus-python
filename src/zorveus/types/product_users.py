@@ -115,6 +115,19 @@ class ProductUserResponse(BaseModel):
             self.credits = self.credit_summary
 
 
+class ProductUserListResponse(BaseModel):
+    product_users: List[ProductUserResponse] = []
+    data: List[ProductUserResponse] = []
+    next_cursor: Optional[str] = None
+    has_more: bool = False
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.data and self.product_users:
+            self.data = self.product_users
+        elif not self.product_users and self.data:
+            self.product_users = self.data
+
+
 class UpsertProductUserResponse(BaseModel):
     product_user: ProductUserResponse
     created: bool = False
@@ -124,6 +137,11 @@ class GrantCreditResponse(BaseModel):
     product_user: Optional[ProductUserResponse] = None
     credit_grant: CreditGrant
     credit_summary: CreditSummary
+
+
+class RevokeCreditResponse(BaseModel):
+    credit_grant: Optional[CreditGrant] = None
+    revoked: bool = True
 
 
 GrantProductUserCreditsResponse = GrantCreditResponse

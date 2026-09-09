@@ -142,3 +142,57 @@ class RateLimitError(ZorveusError):
 
 class InvalidDecimalError(ZorveusError):
     """Raised when credit amount is not a valid decimal string."""
+
+
+def parse_zorveus_gateway_error(
+    error: Any,
+    *,
+    status_code: Optional[int] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> ZorveusError:
+    """Converts a gateway error payload into the matching SDK exception."""
+    body = error if isinstance(error, dict) else {}
+    raw_error = body.get("error") if isinstance(body.get("error"), dict) else body
+    nested = raw_error.get("provider_specific_fields") if isinstance(raw_error, dict) else None
+    details = nested.get("error") if isinstance(nested, dict) and isinstance(nested.get("error"), dict) else raw_error
+    details = details if isinstance(details, dict) else {}
+    message = str(details.get("message") or body.get("detail") or body.get("message") or error)
+    code = details.get("code")
+    params = details.get("params") if isinstance(details.get("params"), dict) else None
+    normalized_code = str(code or "").lower()
+    options = {
+        "status_code": status_code,
+        "raw_body": body,
+        "code": code,
+        "request_id": (headers or {}).get("x-zorveus-request-id"),
+        "reservation_id": (headers or {}).get("x-zorveus-reservation-id"),
+    }
+
+    if normalized_code in {
+        "zorveus_product_user_allowance_insufficient",
+        "zorveus_product_user_credits_insufficient",
+    } or "allowance_insufficient" in normalized_code or "credits_insufficient" in normalized_code:
+        return ProductUserAllowanceInsufficientError(
+            message,
+            params=ProductUserAllowanceInsufficientParams.from_dict(params),
+            **options,
+        )
+    if normalized_code == "zorveus_cap_exceeded" or "cap_exceed" in normalized_code:
+        return CapExceededError(message, **options)
+    if normalized_code == "zorveus_app_connection_not_found" or "app_connection_not_found" in normalized_code:
+        return AppConnectionNotFoundError(message, **options)
+    if status_code == 402 or "insufficient_balance" in normalized_code:
+        return PaymentRequiredError(message, **options)
+    if status_code == 401:
+        return AuthenticationError(message, **options)
+    if status_code == 403:
+        return PermissionDeniedError(message, **options)
+    if status_code == 404:
+        return NotFoundError(message, **options)
+    if status_code == 409:
+        return ConflictError(message, **options)
+    if status_code == 422:
+        return UnprocessableEntityError(message, **options)
+    if status_code == 429:
+        return RateLimitError(message, **options)
+    return ZorveusError(message, **options)

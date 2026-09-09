@@ -4,7 +4,7 @@ from openai import OpenAI as _OpenAI
 API_KEY = "zrv_4g2Z0KLHY1vMJkJyuJQ4sGvIfOBpDnjcQZUnWUdk42E"
 # API_KEY = "zrv_f6y6Upe1Y45SEWUUGjGuqEkrewl-h450jtn2YBlU7_8"
 # MODEL = "gemini/gemini-2.5-flash-lite"
-MODEL = "gemini/gemini-3.5-flash-lite"
+MODEL = "gemini/gemini-3.5-flash"
 # MODEL = "gemini/gemini-3.1-pro-preview"
 BASE_URL = "http://localhost:4000/v1"
 # BASE_URL = "https://api.zorveus.com/v1"
@@ -12,7 +12,7 @@ BASE_URL = "http://localhost:4000/v1"
 USER_1 = "user_1"
 USER_2 = "user_123"
 USER_3 = "user_1234"
-USER_4 = "peter_123"
+USER_4 = "peter_12345"
 
 
 client = ZorveusOpenAI(

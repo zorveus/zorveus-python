@@ -72,6 +72,26 @@ class GrantProviderCredentialResponse(BaseModel):
     grant: Dict[str, Any]
 
 
+class ProviderInfo(BaseModel):
+    provider: str
+    label: Optional[str] = None
+    display_name: Optional[str] = None
+    supported_auth_types: List[str] = Field(default_factory=list)
+    docs_url: Optional[str] = None
+    supports_auto_resolve: Optional[bool] = None
+    supports_manual: Optional[bool] = None
+
+    model_config = {"extra": "allow"}
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.display_name:
+            self.display_name = self.label or self.provider
+
+
+class ProviderCatalogResponse(BaseModel):
+    providers: List[ProviderInfo] = Field(default_factory=list)
+
+
 ProviderCredential = ProviderCredentialResponse
 
 

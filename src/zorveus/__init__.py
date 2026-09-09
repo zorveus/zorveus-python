@@ -18,6 +18,7 @@ from zorveus.errors import (
     UnprocessableEntityError,
     RateLimitError,
     InvalidDecimalError,
+    parse_zorveus_gateway_error,
 )
 from zorveus.types.usage import UsageEvent, UsageEventListResponse
 
@@ -55,6 +56,7 @@ __all__ = [
     "UnprocessableEntityError",
     "RateLimitError",
     "InvalidDecimalError",
+    "parse_zorveus_gateway_error",
     "UsageEvent",
     "UsageEventListResponse",
     "ZorveusOpenAI",
