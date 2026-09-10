@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from zorveus.openai import ZorveusOpenAI, AsyncZorveusOpenAI, HAS_OPENAI
 
+
 def test_openai_missing_import():
     with patch("zorveus.openai.HAS_OPENAI", False):
         with pytest.raises(ImportError) as exc_info:
@@ -97,5 +98,47 @@ def test_zorveus_openai_user_param_and_product_end_user_id():
         assert kwargs["user"] == "usr_std_open_ai"
         assert kwargs["extra_body"]["metadata"]["external_user_id"] == "usr_std_open_ai"
         assert kwargs["extra_body"]["metadata"]["product_end_user_id"] == "peu_init_999"
-        assert kwargs["extra_body"]["metadata"]["product_user"]["display_name"] == "Test User"
+        assert (
+            kwargs["extra_body"]["metadata"]["product_user"]["display_name"]
+            == "Test User"
+        )
 
+
+@pytest.mark.skipif(not HAS_OPENAI, reason="openai package not installed")
+@pytest.mark.parametrize(
+    ("resource_path", "method_name"),
+    [
+        (("embeddings",), "create"),
+        (("audio", "speech"), "create"),
+        (("audio", "transcriptions"), "create"),
+        (("audio", "translations"), "create"),
+        (("images",), "generate"),
+        (("moderations",), "create"),
+    ],
+)
+def test_zorveus_openai_injects_attribution_into_all_inference_resources(
+    resource_path, method_name
+):
+    client = ZorveusOpenAI(
+        api_key="zrv_test_key",
+        external_user_id="customer_123",
+        product_end_user_id="peu_456",
+        display_name="Test User",
+    )
+    resource = client
+    for segment in resource_path:
+        resource = getattr(resource, segment)
+
+    mock_method = MagicMock(return_value={"id": "mock"})
+    with patch.object(resource._resource, method_name, mock_method):
+        getattr(resource, method_name)(model="test-model")
+
+    _, kwargs = mock_method.call_args
+    assert "user" not in kwargs
+    assert kwargs["extra_body"] == {
+        "metadata": {
+            "external_user_id": "customer_123",
+            "product_end_user_id": "peu_456",
+            "product_user": {"display_name": "Test User"},
+        }
+    }

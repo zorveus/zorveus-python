@@ -4,6 +4,7 @@ from zorveus._version import __version__
 
 try:
     from openai import OpenAI as _OpenAI, AsyncOpenAI as _AsyncOpenAI
+
     HAS_OPENAI = True
 except ImportError:
     HAS_OPENAI = False
@@ -19,16 +20,20 @@ def _merge_zorveus_metadata(
     client_email: Optional[str],
     client_user_metadata: Optional[Dict[str, Any]],
     kwargs: Dict[str, Any],
+    *,
+    inject_user_param: bool = True,
 ) -> Optional[Dict[str, Any]]:
     user_param = kwargs.get("user")
     ext_id = kwargs.pop("external_user_id", client_ext_id)
     if not ext_id and user_param:
         ext_id = str(user_param)
-    elif ext_id and not user_param:
+    elif ext_id and not user_param and inject_user_param:
         kwargs["user"] = ext_id
 
     peu_id = kwargs.pop("product_end_user_id", client_peu_id)
-    display_name = kwargs.pop("display_name", client_display_name) or kwargs.pop("product_user_display_name", None)
+    display_name = kwargs.pop("display_name", client_display_name) or kwargs.pop(
+        "product_user_display_name", None
+    )
     email = kwargs.pop("email", client_email) or kwargs.pop("product_user_email", None)
     user_meta = kwargs.pop("user_metadata", client_user_metadata)
     product_user_arg = kwargs.pop("product_user", None)
@@ -60,6 +65,63 @@ def _merge_zorveus_metadata(
 
     extra_body["metadata"] = metadata
     return extra_body
+
+
+class _ZorveusResourceWrapper:
+    """Inject attribution into one method of an OpenAI SDK resource."""
+
+    def __init__(
+        self,
+        resource: Any,
+        method_name: str,
+        client_ext_id: Optional[str],
+        client_peu_id: Optional[str],
+        client_display_name: Optional[str],
+        client_email: Optional[str],
+        client_user_metadata: Optional[Dict[str, Any]],
+    ) -> None:
+        self._resource = resource
+        self._method_name = method_name
+        self._ext_id = client_ext_id
+        self._peu_id = client_peu_id
+        self._display_name = client_display_name
+        self._email = client_email
+        self._user_metadata = client_user_metadata
+
+    def _call(self, *args: Any, **kwargs: Any) -> Any:
+        extra_body = _merge_zorveus_metadata(
+            kwargs.get("extra_body"),
+            self._ext_id,
+            self._peu_id,
+            self._display_name,
+            self._email,
+            self._user_metadata,
+            kwargs,
+            inject_user_param=False,
+        )
+        if extra_body is not None:
+            kwargs["extra_body"] = extra_body
+        return getattr(self._resource, self._method_name)(*args, **kwargs)
+
+    def create(self, *args: Any, **kwargs: Any) -> Any:
+        return self._call(*args, **kwargs)
+
+    def generate(self, *args: Any, **kwargs: Any) -> Any:
+        return self._call(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._resource, name)
+
+
+class _AsyncZorveusResourceWrapper(_ZorveusResourceWrapper):
+    async def _async_call(self, *args: Any, **kwargs: Any) -> Any:
+        return await super()._call(*args, **kwargs)
+
+    async def create(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._async_call(*args, **kwargs)
+
+    async def generate(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._async_call(*args, **kwargs)
 
 
 class _ZorveusCompletionsWrapper:
@@ -230,9 +292,13 @@ class ZorveusOpenAI(_OpenAI):
 
         key = api_key or os.environ.get("ZORVEUS_INFERENCE_KEY")
         if not key:
-            raise ValueError("API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY.")
+            raise ValueError(
+                "API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY."
+            )
 
-        base_url = gateway_url or os.environ.get("ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1")
+        base_url = gateway_url or os.environ.get(
+            "ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1"
+        )
 
         headers = dict(default_headers or {})
         headers["User-Agent"] = f"zorveus-python/{__version__}"
@@ -261,6 +327,25 @@ class ZorveusOpenAI(_OpenAI):
                 email,
                 user_metadata,
             )
+        attribution = (
+            external_user_id,
+            product_end_user_id,
+            display_name,
+            email,
+            user_metadata,
+        )
+        self.embeddings = _ZorveusResourceWrapper(self.embeddings, "create", *attribution)  # type: ignore
+        self.audio.speech = _ZorveusResourceWrapper(self.audio.speech, "create", *attribution)  # type: ignore
+        self.audio.transcriptions = _ZorveusResourceWrapper(  # type: ignore
+            self.audio.transcriptions, "create", *attribution
+        )
+        self.audio.translations = _ZorveusResourceWrapper(  # type: ignore
+            self.audio.translations, "create", *attribution
+        )
+        self.images = _ZorveusResourceWrapper(self.images, "generate", *attribution)  # type: ignore
+        self.moderations = _ZorveusResourceWrapper(  # type: ignore
+            self.moderations, "create", *attribution
+        )
 
 
 class AsyncZorveusOpenAI(_AsyncOpenAI):
@@ -287,9 +372,13 @@ class AsyncZorveusOpenAI(_AsyncOpenAI):
 
         key = api_key or os.environ.get("ZORVEUS_INFERENCE_KEY")
         if not key:
-            raise ValueError("API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY.")
+            raise ValueError(
+                "API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY."
+            )
 
-        base_url = gateway_url or os.environ.get("ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1")
+        base_url = gateway_url or os.environ.get(
+            "ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1"
+        )
 
         headers = dict(default_headers or {})
         headers["User-Agent"] = f"zorveus-python/{__version__}"
@@ -318,3 +407,28 @@ class AsyncZorveusOpenAI(_AsyncOpenAI):
                 email,
                 user_metadata,
             )
+        attribution = (
+            external_user_id,
+            product_end_user_id,
+            display_name,
+            email,
+            user_metadata,
+        )
+        self.embeddings = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.embeddings, "create", *attribution
+        )
+        self.audio.speech = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.audio.speech, "create", *attribution
+        )
+        self.audio.transcriptions = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.audio.transcriptions, "create", *attribution
+        )
+        self.audio.translations = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.audio.translations, "create", *attribution
+        )
+        self.images = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.images, "generate", *attribution
+        )
+        self.moderations = _AsyncZorveusResourceWrapper(  # type: ignore
+            self.moderations, "create", *attribution
+        )

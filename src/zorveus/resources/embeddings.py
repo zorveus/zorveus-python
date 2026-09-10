@@ -17,6 +17,7 @@ class EmbeddingsResource:
         encoding_format: Optional[str] = None,
         dimensions: Optional[int] = None,
         user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
     ) -> EmbeddingCreateResponse:
         payload: Dict[str, Any] = {"model": model, "input": input}
@@ -26,9 +27,14 @@ class EmbeddingsResource:
             payload["dimensions"] = dimensions
         if user is not None:
             payload["user"] = user
-        if zorveus_metadata is not None:
-            payload["metadata"] = zorveus_metadata
-            payload["zorveus_metadata"] = zorveus_metadata
+        metadata = dict(zorveus_metadata or {})
+        if product_end_user_id and "product_end_user_id" not in metadata:
+            metadata["product_end_user_id"] = product_end_user_id
+        if user and "external_user_id" not in metadata:
+            metadata["external_user_id"] = user
+        if metadata:
+            payload["metadata"] = metadata
+            payload["zorveus_metadata"] = metadata
         return self._transport.post(
             "/embeddings", json_data=payload, response_model=EmbeddingCreateResponse
         )
@@ -46,6 +52,7 @@ class AsyncEmbeddingsResource:
         encoding_format: Optional[str] = None,
         dimensions: Optional[int] = None,
         user: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
     ) -> EmbeddingCreateResponse:
         payload: Dict[str, Any] = {"model": model, "input": input}
@@ -55,9 +62,14 @@ class AsyncEmbeddingsResource:
             payload["dimensions"] = dimensions
         if user is not None:
             payload["user"] = user
-        if zorveus_metadata is not None:
-            payload["metadata"] = zorveus_metadata
-            payload["zorveus_metadata"] = zorveus_metadata
+        metadata = dict(zorveus_metadata or {})
+        if product_end_user_id and "product_end_user_id" not in metadata:
+            metadata["product_end_user_id"] = product_end_user_id
+        if user and "external_user_id" not in metadata:
+            metadata["external_user_id"] = user
+        if metadata:
+            payload["metadata"] = metadata
+            payload["zorveus_metadata"] = metadata
         return await self._transport.post(
             "/embeddings", json_data=payload, response_model=EmbeddingCreateResponse
         )

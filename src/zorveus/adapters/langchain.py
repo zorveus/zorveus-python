@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 
 try:
     from langchain_openai import ChatOpenAI
+
     HAS_LANGCHAIN = True
 except ImportError:
     HAS_LANGCHAIN = False
@@ -18,6 +19,7 @@ class ChatZorveus(ChatOpenAI):
         *,
         gateway_url: Optional[str] = None,
         external_user_id: Optional[str] = None,
+        product_end_user_id: Optional[str] = None,
         display_name: Optional[str] = None,
         email: Optional[str] = None,
         user_metadata: Optional[Dict[str, Any]] = None,
@@ -33,9 +35,13 @@ class ChatZorveus(ChatOpenAI):
 
         key = api_key or os.environ.get("ZORVEUS_INFERENCE_KEY")
         if not key:
-            raise ValueError("API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY.")
+            raise ValueError(
+                "API key is required. Pass api_key or set ZORVEUS_INFERENCE_KEY."
+            )
 
-        base_url = gateway_url or os.environ.get("ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1")
+        base_url = gateway_url or os.environ.get(
+            "ZORVEUS_GATEWAY_URL", "https://api.zorveus.com/v1"
+        )
 
         m_kwargs = dict(model_kwargs or {})
         extra_body = dict(m_kwargs.get("extra_body") or {})
@@ -43,6 +49,8 @@ class ChatZorveus(ChatOpenAI):
 
         if external_user_id and "external_user_id" not in metadata:
             metadata["external_user_id"] = external_user_id
+        if product_end_user_id and "product_end_user_id" not in metadata:
+            metadata["product_end_user_id"] = product_end_user_id
 
         product_user = dict(metadata.get("product_user") or {})
         if display_name and "display_name" not in product_user:

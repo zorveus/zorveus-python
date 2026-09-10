@@ -421,6 +421,7 @@ def openai_text_to_speech() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         response = client.audio.speech.create(
@@ -443,6 +444,7 @@ def openai_transcribe_audio() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         with audio_path.open("rb") as audio_file:
@@ -460,6 +462,7 @@ def openai_translate_audio() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         with audio_path.open("rb") as audio_file:
@@ -476,6 +479,7 @@ def openai_generate_image() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         response = client.images.generate(
@@ -501,6 +505,7 @@ def openai_moderate_content() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         response = client.moderations.create(
@@ -516,6 +521,7 @@ def openai_list_files() -> None:
     client = ZorveusOpenAI(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
         gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
     )
     try:
         dump(client.files.list(limit=int(ask("File limit", "20"))))

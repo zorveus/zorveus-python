@@ -23,12 +23,14 @@ def test_chat_zorveus_langchain_kwargs():
     llm = ChatZorveus(
         api_key="zrv_test_key",
         external_user_id="cus_12345",
+        product_end_user_id="peu_67890",
         display_name="Ada Lovelace",
         user_metadata={"plan": "pro"},
     )
     expected_body = {
         "metadata": {
             "external_user_id": "cus_12345",
+            "product_end_user_id": "peu_67890",
             "product_user": {
                 "display_name": "Ada Lovelace",
                 "metadata": {"plan": "pro"},
@@ -43,12 +45,14 @@ def test_zorveus_llm_llamaindex_kwargs():
     llm = ZorveusLLM(
         api_key="zrv_test_key",
         external_user_id="cus_12345",
+        product_end_user_id="peu_67890",
         display_name="Ada Lovelace",
         user_metadata={"plan": "pro"},
     )
     expected_body = {
         "metadata": {
             "external_user_id": "cus_12345",
+            "product_end_user_id": "peu_67890",
             "product_user": {
                 "display_name": "Ada Lovelace",
                 "metadata": {"plan": "pro"},
