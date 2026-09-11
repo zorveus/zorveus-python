@@ -63,12 +63,6 @@ class ProviderCredentialsResource:
             response_model=ProviderCredentialListResponse,
         )
 
-    def get(self, provider_credential_id: str) -> ProviderCredentialResponse:
-        return self._transport.get(
-            f"/provider-credentials/org-programmatic/{provider_credential_id}",
-            response_model=ProviderCredentialResponse,
-        )
-
     def list_providers(self) -> ProviderCatalogResponse:
         return self._transport.get(
             "/provider-credentials/providers", response_model=ProviderCatalogResponse
@@ -186,12 +180,6 @@ class AsyncProviderCredentialsResource:
             "/provider-credentials/org-programmatic",
             params=params or None,
             response_model=ProviderCredentialListResponse,
-        )
-
-    async def get(self, provider_credential_id: str) -> ProviderCredentialResponse:
-        return await self._transport.get(
-            f"/provider-credentials/org-programmatic/{provider_credential_id}",
-            response_model=ProviderCredentialResponse,
         )
 
     async def list_providers(self) -> ProviderCatalogResponse:

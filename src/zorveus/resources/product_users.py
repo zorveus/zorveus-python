@@ -3,7 +3,6 @@ from zorveus.http.transport import SyncHTTPTransport
 from zorveus.http.async_transport import AsyncHTTPTransport
 from zorveus.types.product_users import (
     ProductUserResponse,
-    ProductUserListResponse,
     UpsertProductUserResponse,
     GrantCreditResponse,
     ProductUserCreditSummaryResponse,
@@ -52,19 +51,6 @@ class ProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
-        )
-
-    def list(
-        self, *, org_id: Optional[str] = None, app_id: Optional[str] = None,
-        limit: Optional[int] = None, offset: Optional[int] = None
-    ) -> ProductUserListResponse:
-        params = {
-            key: value for key, value in {
-                "org_id": org_id, "app_id": app_id, "limit": limit, "offset": offset
-            }.items() if value is not None
-        }
-        return self._transport.get(
-            "/product-users", params=params or None, response_model=ProductUserListResponse
         )
 
     def get_credit_summary_by_external_id(
@@ -196,19 +182,6 @@ class AsyncProductUsersResource:
             "/product-users/by-external-id",
             params=params,
             response_model=ProductUserResponse,
-        )
-
-    async def list(
-        self, *, org_id: Optional[str] = None, app_id: Optional[str] = None,
-        limit: Optional[int] = None, offset: Optional[int] = None
-    ) -> ProductUserListResponse:
-        params = {
-            key: value for key, value in {
-                "org_id": org_id, "app_id": app_id, "limit": limit, "offset": offset
-            }.items() if value is not None
-        }
-        return await self._transport.get(
-            "/product-users", params=params or None, response_model=ProductUserListResponse
         )
 
     async def get_credit_summary_by_external_id(

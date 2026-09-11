@@ -171,15 +171,6 @@ def get_product_user() -> None:
     )
 
 
-def list_product_users() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.product_users.list(app_id=app_id(), limit=int(ask("Limit", "20")))
-        ),
-    )
-
-
 def get_credit_summary() -> None:
     with_client(
         service_client(),
@@ -231,28 +222,8 @@ def list_provider_credentials() -> None:
     with_client(service_client(), run)
 
 
-def get_provider_credential() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.get(
-                required("Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID")
-            )
-        ),
-    )
-
-
 def list_providers() -> None:
     with_client(service_client(), lambda client: dump(client.provider_credentials.list_providers()))
-
-
-def list_usage_events() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.usage_events.list(app_id=app_id(), limit=int(ask("Limit", "20")))
-        ),
-    )
 
 
 def parse_gateway_error() -> None:
@@ -517,18 +488,6 @@ def openai_moderate_content() -> None:
         client.close()
 
 
-def openai_list_files() -> None:
-    client = ZorveusOpenAI(
-        api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
-        gateway_url=GATEWAY_URL,
-        external_user_id=external_user_id(),
-    )
-    try:
-        dump(client.files.list(limit=int(ask("File limit", "20"))))
-    finally:
-        client.close()
-
-
 def langchain_adapter() -> None:
     client = ChatZorveus(
         api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
@@ -599,14 +558,11 @@ ACTIONS = [
     Action("Create an embedding", embedding),
     Action("Create or update a product user", upsert_product_user, True),
     Action("Get a product user", get_product_user),
-    Action("List product users", list_product_users),
     Action("Get a product user's credit summary", get_credit_summary),
     Action("List a product user's credit grants", list_credit_grants),
     Action("Grant credit to a product user", grant_credit, True),
     Action("List provider credentials", list_provider_credentials),
-    Action("Get one provider credential", get_provider_credential),
     Action("List supported providers", list_providers),
-    Action("List usage events", list_usage_events),
     Action("Parse a gateway error", parse_gateway_error),
     Action("Create a provider credential", create_provider_credential, True),
     Action("Rotate a provider credential", rotate_provider_credential, True),
@@ -623,7 +579,6 @@ ACTIONS = [
     Action("Translate an audio file", openai_translate_audio),
     Action("Generate an image", openai_generate_image),
     Action("Moderate text or multimodal content", openai_moderate_content),
-    Action("List gateway files", openai_list_files),
     Action("Run a LangChain adapter completion", langchain_adapter),
     Action("Run a LlamaIndex adapter completion", llamaindex_adapter),
     Action("Smoke-test the async clients", run_async_client_smoke_test),

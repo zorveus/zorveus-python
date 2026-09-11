@@ -20,7 +20,6 @@ from zorveus.errors import (
     InvalidDecimalError,
     parse_zorveus_gateway_error,
 )
-from zorveus.types.usage import UsageEvent, UsageEventListResponse
 
 if TYPE_CHECKING:
     from zorveus.openai import ZorveusOpenAI, AsyncZorveusOpenAI
@@ -57,8 +56,6 @@ __all__ = [
     "RateLimitError",
     "InvalidDecimalError",
     "parse_zorveus_gateway_error",
-    "UsageEvent",
-    "UsageEventListResponse",
     "ZorveusOpenAI",
     "AsyncZorveusOpenAI",
 ]
