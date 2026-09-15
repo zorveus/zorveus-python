@@ -113,6 +113,7 @@ def test_zorveus_openai_user_param_and_product_end_user_id():
         (("audio", "transcriptions"), "create"),
         (("audio", "translations"), "create"),
         (("images",), "generate"),
+        (("videos",), "create"),
         (("moderations",), "create"),
     ],
 )
@@ -142,3 +143,61 @@ def test_zorveus_openai_injects_attribution_into_all_inference_resources(
             "product_user": {"display_name": "Test User"},
         }
     }
+
+
+@pytest.mark.skipif(not HAS_OPENAI, reason="openai package not installed")
+def test_zorveus_openai_video_create_and_poll_keeps_attribution():
+    client = ZorveusOpenAI(
+        api_key="zrv_test_key",
+        external_user_id="customer_123",
+    )
+    if not hasattr(client, "videos"):
+        pytest.skip("installed openai package does not support videos")
+
+    created = MagicMock(id="video_123", status="queued")
+    completed = MagicMock(id="video_123", status="completed")
+    with (
+        patch.object(client.videos._resource, "create", return_value=created) as create,
+        patch.object(client.videos._resource, "poll", return_value=completed) as poll,
+    ):
+        result = client.videos.create_and_poll(
+            model="sora-2",
+            prompt="A paper airplane in flight",
+            seconds="4",
+            size="1280x720",
+            poll_interval_ms=250,
+        )
+
+    assert result is completed
+    create.assert_called_once_with(
+        model="sora-2",
+        prompt="A paper airplane in flight",
+        seconds="4",
+        size="1280x720",
+        extra_body={"metadata": {"external_user_id": "customer_123"}},
+    )
+    poll.assert_called_once_with("video_123", poll_interval_ms=250)
+
+
+@pytest.mark.skipif(not HAS_OPENAI, reason="openai package not installed")
+def test_zorveus_openai_video_create_and_poll_waits_while_processing():
+    client = ZorveusOpenAI(api_key="zrv_test_key")
+    if not hasattr(client, "videos"):
+        pytest.skip("installed openai package does not support videos")
+
+    processing = MagicMock(id="video_123", status="processing")
+    completed = MagicMock(id="video_123", status="completed")
+    with (
+        patch.object(client.videos._resource, "create", return_value=processing),
+        patch.object(client.videos._resource, "poll", return_value=completed) as poll,
+        patch("zorveus.openai.time.sleep") as sleep,
+    ):
+        result = client.videos.create_and_poll(
+            model="gemini/veo-3.1-lite-generate-preview",
+            prompt="A paper airplane in flight",
+            poll_interval_ms=250,
+        )
+
+    assert result is completed
+    sleep.assert_called_once_with(0.25)
+    poll.assert_called_once_with("video_123", poll_interval_ms=250)

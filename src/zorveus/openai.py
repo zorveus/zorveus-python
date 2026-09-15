@@ -1,4 +1,6 @@
+import asyncio
 import os
+import time
 from typing import Optional, Dict, Any, Mapping
 from zorveus._version import __version__
 
@@ -109,6 +111,19 @@ class _ZorveusResourceWrapper:
     def generate(self, *args: Any, **kwargs: Any) -> Any:
         return self._call(*args, **kwargs)
 
+    def create_and_poll(self, *args: Any, **kwargs: Any) -> Any:
+        poll_interval_ms = kwargs.pop("poll_interval_ms", None)
+        resource = self._resource
+        video = self._call(*args, **kwargs)
+        while video.status in {"queued", "in_progress", "processing"}:
+            if video.status == "processing":
+                time.sleep((poll_interval_ms or 1000) / 1000)
+            if poll_interval_ms is None:
+                video = resource.poll(video.id)
+            else:
+                video = resource.poll(video.id, poll_interval_ms=poll_interval_ms)
+        return video
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self._resource, name)
 
@@ -122,6 +137,21 @@ class _AsyncZorveusResourceWrapper(_ZorveusResourceWrapper):
 
     async def generate(self, *args: Any, **kwargs: Any) -> Any:
         return await self._async_call(*args, **kwargs)
+
+    async def create_and_poll(self, *args: Any, **kwargs: Any) -> Any:
+        poll_interval_ms = kwargs.pop("poll_interval_ms", None)
+        resource = self._resource
+        video = await self._async_call(*args, **kwargs)
+        while video.status in {"queued", "in_progress", "processing"}:
+            if video.status == "processing":
+                await asyncio.sleep((poll_interval_ms or 1000) / 1000)
+            if poll_interval_ms is None:
+                video = await resource.poll(video.id)
+            else:
+                video = await resource.poll(
+                    video.id, poll_interval_ms=poll_interval_ms
+                )
+        return video
 
 
 class _ZorveusCompletionsWrapper:
@@ -334,8 +364,12 @@ class ZorveusOpenAI(_OpenAI):
             email,
             user_metadata,
         )
-        self.embeddings = _ZorveusResourceWrapper(self.embeddings, "create", *attribution)  # type: ignore
-        self.audio.speech = _ZorveusResourceWrapper(self.audio.speech, "create", *attribution)  # type: ignore
+        self.embeddings = _ZorveusResourceWrapper(
+            self.embeddings, "create", *attribution
+        )  # type: ignore
+        self.audio.speech = _ZorveusResourceWrapper(
+            self.audio.speech, "create", *attribution
+        )  # type: ignore
         self.audio.transcriptions = _ZorveusResourceWrapper(  # type: ignore
             self.audio.transcriptions, "create", *attribution
         )
@@ -343,6 +377,10 @@ class ZorveusOpenAI(_OpenAI):
             self.audio.translations, "create", *attribution
         )
         self.images = _ZorveusResourceWrapper(self.images, "generate", *attribution)  # type: ignore
+        if hasattr(self, "videos") and self.videos is not None:
+            self.videos = _ZorveusResourceWrapper(  # type: ignore
+                self.videos, "create", *attribution
+            )
         self.moderations = _ZorveusResourceWrapper(  # type: ignore
             self.moderations, "create", *attribution
         )
@@ -429,6 +467,10 @@ class AsyncZorveusOpenAI(_AsyncOpenAI):
         self.images = _AsyncZorveusResourceWrapper(  # type: ignore
             self.images, "generate", *attribution
         )
+        if hasattr(self, "videos") and self.videos is not None:
+            self.videos = _AsyncZorveusResourceWrapper(  # type: ignore
+                self.videos, "create", *attribution
+            )
         self.moderations = _AsyncZorveusResourceWrapper(  # type: ignore
             self.moderations, "create", *attribution
         )

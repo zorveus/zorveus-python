@@ -88,7 +88,9 @@ def model_id(client: Zorveus | None = None) -> str:
     if client is None:
         return required("Model", "ZORVEUS_MODEL")
     models = client.models.list().data
-    return required("Model", "ZORVEUS_MODEL") if not models else ask("Model", models[0].id)
+    return (
+        required("Model", "ZORVEUS_MODEL") if not models else ask("Model", models[0].id)
+    )
 
 
 def get_usage() -> None:
@@ -122,7 +124,9 @@ def streaming_chat_completion() -> None:
     def run(client: Zorveus) -> None:
         stream = client.chat.completions.create(
             model=model_id(client),
-            messages=[{"role": "user", "content": ask("Prompt", "Count from one to five")}],
+            messages=[
+                {"role": "user", "content": ask("Prompt", "Count from one to five")}
+            ],
             user=external_user_id(),
             stream=True,
         )
@@ -138,7 +142,10 @@ def embedding() -> None:
         inference_client(),
         lambda client: dump(
             client.embeddings.create(
-                model=ask("Embedding model", os.getenv("ZORVEUS_EMBEDDING_MODEL", "text-embedding-3-small")),
+                model=ask(
+                    "Embedding model",
+                    os.getenv("ZORVEUS_EMBEDDING_MODEL", "text-embedding-3-small"),
+                ),
                 input=ask("Text to embed", "Zorveus SDK test"),
                 user=external_user_id(),
             )
@@ -216,14 +223,19 @@ def grant_credit() -> None:
 
 def list_provider_credentials() -> None:
     def run(client: ZorveusServiceClient) -> None:
-        selected_app_id = ask("App ID filter, blank for all", os.getenv("ZORVEUS_APP_ID"))
+        selected_app_id = ask(
+            "App ID filter, blank for all", os.getenv("ZORVEUS_APP_ID")
+        )
         dump(client.provider_credentials.list(app_id=selected_app_id or None))
 
     with_client(service_client(), run)
 
 
 def list_providers() -> None:
-    with_client(service_client(), lambda client: dump(client.provider_credentials.list_providers()))
+    with_client(
+        service_client(),
+        lambda client: dump(client.provider_credentials.list_providers()),
+    )
 
 
 def parse_gateway_error() -> None:
@@ -251,7 +263,9 @@ def create_provider_credential() -> None:
         lambda client: dump(
             client.provider_credentials.create(
                 provider=required("Provider", "ZORVEUS_TEST_PROVIDER"),
-                api_key=required("Disposable provider API key", "ZORVEUS_TEST_PROVIDER_API_KEY"),
+                api_key=required(
+                    "Disposable provider API key", "ZORVEUS_TEST_PROVIDER_API_KEY"
+                ),
                 credential_name=ask("Credential name", "SDK runner credential"),
                 routing_priority=int(ask("Routing priority", "100")),
             )
@@ -268,7 +282,8 @@ def rotate_provider_credential() -> None:
                     "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
                 ),
                 api_key=required(
-                    "New disposable provider API key", "ZORVEUS_TEST_PROVIDER_ROTATED_API_KEY"
+                    "New disposable provider API key",
+                    "ZORVEUS_TEST_PROVIDER_ROTATED_API_KEY",
                 ),
             )
         ),
@@ -297,14 +312,18 @@ def grant_provider_to_app_connection() -> None:
                 provider_credential_id=required(
                     "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
                 ),
-                app_connection_id=required("App connection ID", "ZORVEUS_TEST_APP_CONNECTION_ID"),
+                app_connection_id=required(
+                    "App connection ID", "ZORVEUS_TEST_APP_CONNECTION_ID"
+                ),
             )
         ),
     )
 
 
 def delete_provider_credential() -> None:
-    credential_id = required("Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID")
+    credential_id = required(
+        "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
+    )
     if ask(f"Type {credential_id} to confirm deletion") != credential_id:
         raise RuntimeError("Deletion cancelled")
     with_client(
@@ -323,7 +342,9 @@ def oauth_pkce_and_url() -> None:
             client_id=required("OAuth client ID", "ZORVEUS_CLIENT_ID"),
             redirect_uri=ask(
                 "Redirect URI",
-                os.getenv("ZORVEUS_REDIRECT_URI", "http://localhost:5173/oauth/callback"),
+                os.getenv(
+                    "ZORVEUS_REDIRECT_URI", "http://localhost:5173/oauth/callback"
+                ),
             ),
             state=pkce.state,
             code_challenge=pkce.code_challenge,
@@ -396,7 +417,12 @@ def openai_text_to_speech() -> None:
     )
     try:
         response = client.audio.speech.create(
-            model=ask("Speech model", os.getenv("ZORVEUS_SPEECH_MODEL", "gemini/gemini-2.5-flash-preview-tts")),
+            model=ask(
+                "Speech model",
+                os.getenv(
+                    "ZORVEUS_SPEECH_MODEL", "gemini/gemini-2.5-flash-preview-tts"
+                ),
+            ),
             voice=ask("Voice", "achird"),
             input=ask("Text", "Hello from the Zorveus Python SDK."),
             # response_format=ask("Audio format", "mp3"),
@@ -420,7 +446,10 @@ def openai_transcribe_audio() -> None:
     try:
         with audio_path.open("rb") as audio_file:
             response = client.audio.transcriptions.create(
-                model=ask("Transcription model", os.getenv("ZORVEUS_TRANSCRIPTION_MODEL", "whisper-1")),
+                model=ask(
+                    "Transcription model",
+                    os.getenv("ZORVEUS_TRANSCRIPTION_MODEL", "whisper-1"),
+                ),
                 file=audio_file,
             )
         dump(response)
@@ -438,7 +467,10 @@ def openai_translate_audio() -> None:
     try:
         with audio_path.open("rb") as audio_file:
             response = client.audio.translations.create(
-                model=ask("Translation model", os.getenv("ZORVEUS_TRANSLATION_MODEL", "whisper-1")),
+                model=ask(
+                    "Translation model",
+                    os.getenv("ZORVEUS_TRANSLATION_MODEL", "whisper-1"),
+                ),
                 file=audio_file,
             )
         dump(response)
@@ -455,19 +487,52 @@ def openai_generate_image() -> None:
     try:
         response = client.images.generate(
             model=ask("Image model", os.getenv("ZORVEUS_IMAGE_MODEL", "dall-e-3")),
-            prompt=ask("Image prompt", "A simple geometric illustration of an AI gateway"),
+            prompt=ask(
+                "Image prompt", "A simple geometric illustration of an AI gateway"
+            ),
             n=1,
             size=ask("Image size", "1024x1024"),
             response_format="b64_json",
         )
         image_data = response.data[0]
-        output_path = Path(ask("Output image path", "examples/output/generated-image.png"))
+        output_path = Path(
+            ask("Output image path", "examples/output/generated-image.png")
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if image_data.b64_json:
             output_path.write_bytes(base64.b64decode(image_data.b64_json))
             print(f"Saved generated image to {output_path}")
         else:
             print(f"Generated image URL: {image_data.url}")
+    finally:
+        client.close()
+
+
+def openai_generate_video() -> None:
+    client = ZorveusOpenAI(
+        api_key=required("Inference key", "ZORVEUS_INFERENCE_KEY"),
+        gateway_url=GATEWAY_URL,
+        external_user_id=external_user_id(),
+    )
+    try:
+        video = client.videos.create_and_poll(
+            model=ask("Video model", os.getenv("ZORVEUS_VIDEO_MODEL", "sora-2")),
+            prompt=ask(
+                "Video prompt", "A paper airplane gliding over a geometric city"
+            ),
+            seconds=ask("Duration in seconds", "4"),
+            size=ask("Video size", "1280x720"),
+        )
+        dump(video)
+        if video.status != "completed":
+            raise RuntimeError(f"Video generation ended with status {video.status}")
+
+        output_path = Path(
+            ask("Output video path", "examples/output/generated-video.mp4")
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        client.videos.download_content(video.id).write_to_file(output_path)
+        print(f"Saved generated video to {output_path}")
     finally:
         client.close()
 
@@ -480,7 +545,10 @@ def openai_moderate_content() -> None:
     )
     try:
         response = client.moderations.create(
-            model=ask("Moderation model", os.getenv("ZORVEUS_MODERATION_MODEL", "omni-moderation-latest")),
+            model=ask(
+                "Moderation model",
+                os.getenv("ZORVEUS_MODERATION_MODEL", "omni-moderation-latest"),
+            ),
             input=ask("Content", "Check this text for safety."),
         )
         dump(response)
@@ -525,7 +593,13 @@ async def async_client_smoke_test() -> None:
                 app_id=app_id(), external_user_id=external_user_id()
             ),
         )
-        dump({"usage": usage.model_dump(), "models": models.model_dump(), "user": user.model_dump()})
+        dump(
+            {
+                "usage": usage.model_dump(),
+                "models": models.model_dump(),
+                "user": user.model_dump(),
+            }
+        )
     finally:
         await inference.close()
         await service.close()
@@ -567,7 +641,11 @@ ACTIONS = [
     Action("Create a provider credential", create_provider_credential, True),
     Action("Rotate a provider credential", rotate_provider_credential, True),
     Action("Update provider routing priority", update_provider_routing_priority, True),
-    Action("Grant a provider credential to an app connection", grant_provider_to_app_connection, True),
+    Action(
+        "Grant a provider credential to an app connection",
+        grant_provider_to_app_connection,
+        True,
+    ),
     Action("Delete a provider credential", delete_provider_credential, True),
     Action("Generate OAuth PKCE data and authorization URL", oauth_pkce_and_url),
     Action("Validate an OAuth callback", oauth_validate_callback),
@@ -578,6 +656,7 @@ ACTIONS = [
     Action("Transcribe an audio file", openai_transcribe_audio),
     Action("Translate an audio file", openai_translate_audio),
     Action("Generate an image", openai_generate_image),
+    Action("Generate a video", openai_generate_video),
     Action("Moderate text or multimodal content", openai_moderate_content),
     Action("Run a LangChain adapter completion", langchain_adapter),
     Action("Run a LlamaIndex adapter completion", llamaindex_adapter),
@@ -620,14 +699,21 @@ def main() -> None:
         if selection == "s":
             selected = [action for action in ACTIONS if not action.mutates]
         elif selection == "a":
-            if ask("Type RUN ALL to include actions that change or delete data") != "RUN ALL":
+            if (
+                ask("Type RUN ALL to include actions that change or delete data")
+                != "RUN ALL"
+            ):
                 print("Run-all cancelled.")
                 continue
             selected = ACTIONS
         else:
             try:
-                selected = [ACTIONS[int(value.strip()) - 1] for value in selection.split(",")]
-                if not selected or any(int(value.strip()) < 1 for value in selection.split(",")):
+                selected = [
+                    ACTIONS[int(value.strip()) - 1] for value in selection.split(",")
+                ]
+                if not selected or any(
+                    int(value.strip()) < 1 for value in selection.split(",")
+                ):
                     raise ValueError
             except (ValueError, IndexError):
                 print("Choose listed numbers separated by commas, s, a, or q.")
