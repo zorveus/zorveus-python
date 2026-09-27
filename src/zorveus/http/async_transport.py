@@ -144,6 +144,12 @@ class AsyncHTTPTransport:
         """Sends async HTTP streaming request and yields parsed SSE objects."""
         req = self.client.build_request(method, path, json=json_data)
         response = await self.client.send(req, stream=True)
+        if not response.is_success:
+            await response.aread()
+            try:
+                raise_for_status(response)
+            finally:
+                await response.aclose()
         raise_for_status(response)
         return parse_async_sse_stream(response.aiter_lines(), response_model)
 

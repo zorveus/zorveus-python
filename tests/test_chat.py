@@ -2,6 +2,8 @@ import pytest
 import respx
 import httpx
 from zorveus import Zorveus, AsyncZorveus
+from zorveus.errors import AuthenticationError
+
 
 @respx.mock
 def test_sync_chat_completion():
@@ -60,6 +62,44 @@ def test_sync_chat_completion_stream():
     assert len(chunks) == 2
     assert chunks[0].choices[0].delta.content == "Hello"
     assert chunks[1].choices[0].delta.content == " world!"
+
+
+@respx.mock
+def test_sync_chat_completion_stream_reads_error_body():
+    client = Zorveus(api_key="test_key")
+    respx.post("https://api.zorveus.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            401,
+            json={"error": {"message": "x-api-key header is required"}},
+        )
+    )
+
+    with pytest.raises(AuthenticationError, match="x-api-key header is required"):
+        client.chat.completions.create(
+            model="openai/gpt-4.1-mini",
+            messages=[{"role": "user", "content": "Hi"}],
+            stream=True,
+        )
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_chat_completion_stream_reads_error_body():
+    client = AsyncZorveus(api_key="test_key")
+    respx.post("https://api.zorveus.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            401,
+            json={"error": {"message": "x-api-key header is required"}},
+        )
+    )
+
+    with pytest.raises(AuthenticationError, match="x-api-key header is required"):
+        await client.chat.completions.create(
+            model="openai/gpt-4.1-mini",
+            messages=[{"role": "user", "content": "Hi"}],
+            stream=True,
+        )
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -142,4 +182,3 @@ def test_chat_attribution_and_tracking_headers():
     assert sent_payload["user"] == "usr_cust_123"
     assert sent_payload["metadata"]["external_user_id"] == "usr_cust_123"
     assert sent_payload["metadata"]["product_end_user_id"] == "peu_999"
-

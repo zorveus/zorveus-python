@@ -324,6 +324,12 @@ class SyncHTTPTransport:
         """Sends HTTP streaming request and yields parsed SSE objects."""
         req = self.client.build_request(method, path, json=json_data)
         response = self.client.send(req, stream=True)
+        if not response.is_success:
+            response.read()
+            try:
+                raise_for_status(response)
+            finally:
+                response.close()
         raise_for_status(response)
         return parse_sync_sse_stream(response.iter_lines(), response_model)
 
