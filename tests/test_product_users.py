@@ -13,13 +13,15 @@ SAMPLE_USER_PAYLOAD = {
     "status": "active",
     "metadata": None,
     "usage": {
-        "this_month": {
+        "this_period": {
             "sell_cost": "0.000000000000",
             "input_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
             "request_count": 0,
         },
+        "period_start": "2026-10-01T00:00:00.000Z",
+        "period_end": "2026-10-31T23:59:59.000Z",
         "total": {
             "sell_cost": "0.000000000000",
             "input_tokens": 0,
@@ -29,6 +31,7 @@ SAMPLE_USER_PAYLOAD = {
         },
     },
     "cap": None,
+    "direct_cap": None,
     "credits": {
         "currency": "USD",
         "available_credits": "25.000000000000",
@@ -271,13 +274,15 @@ def test_product_user_full_payload_with_allowance_and_getters():
         "allowance_starts_at": "2026-10-02T02:07:26.535Z",
         "last_app_connection_id": "conn_999",
         "usage": {
-            "this_month": {
+            "this_period": {
                 "sell_cost": "1.250000000000",
                 "input_tokens": 1000,
                 "output_tokens": 500,
                 "total_tokens": 1500,
                 "request_count": 10,
             },
+            "period_start": "2026-10-01T00:00:00.000Z",
+            "period_end": "2026-10-31T23:59:59.000Z",
             "total": {
                 "sell_cost": "3.500000000000",
                 "input_tokens": 3000,
@@ -298,6 +303,15 @@ def test_product_user_full_payload_with_allowance_and_getters():
             "reset_at": "2026-10-03T00:00:00.000Z",
             "status": "active",
             "updated_at": "2026-10-02T02:07:26.535Z",
+        },
+        "direct_cap": {
+            "source": "product_end_user",
+            "cap_rule_id": "rule_direct_1",
+            "amount": "999.000000000000",
+            "currency": "USD",
+            "period": "monthly",
+            "spent_this_period": "888.000000000000",
+            "status": "disabled",
         },
         "credits": {
             "currency": "USD",
@@ -352,10 +366,16 @@ def test_product_user_full_payload_with_allowance_and_getters():
     assert user.cap.amount == "20.000000000000"
     assert user.cap.source == "product_end_user"
 
+    # Direct cap sub-object deserialization
+    assert user.direct_cap is not None
+    assert user.direct_cap.amount == "999.000000000000"
+    assert user.direct_cap.spent_this_period == "888.000000000000"
+    assert user.direct_cap.status == "disabled"
+
     # Usage sub-object
     assert user.usage is not None
-    assert user.usage.this_month.sell_cost == "1.250000000000"
-    assert user.usage.this_month.total_tokens == 1500
+    assert user.usage.this_period.sell_cost == "1.250000000000"
+    assert user.usage.this_period.total_tokens == 1500
     assert user.usage.total.sell_cost == "3.500000000000"
 
     # Getters
@@ -366,12 +386,14 @@ def test_product_user_full_payload_with_allowance_and_getters():
     assert user.get_available_credits() == "10.000000000000"
     assert user.get_total_credits() == "10.000000000000"
     assert user.total_credits == "10.000000000000"
+    # Ignores direct_cap: returns 20, not 999
     assert user.get_total_allowance() == "20.000000000000"
+    # Ignores direct_cap: returns 5, not 888
     assert user.get_cap_spent() == "5.000000000000"
     assert user.cap_spent == "5.000000000000"
     assert user.get_remaining_base_allowance() == "15.000000000000"
     assert user.has_available_allowance() is True
-    assert user.get_usage_cost("this_month") == "1.250000000000"
+    assert user.get_usage_cost("this_period") == "1.250000000000"
     assert user.get_usage_cost("total") == "3.500000000000"
 
     # Decimal getters
@@ -435,7 +457,24 @@ def test_product_user_empty_financials():
     assert user.get_cap_spent() == "0.000000000000"
     assert user.get_remaining_base_allowance() is None
     assert user.has_available_allowance() is False
-    assert user.get_usage_cost("this_month") == "0.000000000000"
+    assert user.get_usage_cost("this_period") == "0.000000000000"
+
+
+def test_product_user_direct_cap_ignored_in_calculations():
+    from zorveus.types import ProductUserResponse, ProductUserCapResponse
+
+    user = ProductUserResponse(
+        app_id="app_1",
+        external_user_id="ext_1",
+        direct_cap=ProductUserCapResponse(
+            amount="50.000000000000",
+            spent_this_period="12.000000000000",
+        ),
+    )
+
+    # When cap and allowance are not configured, direct_cap must be ignored
+    assert user.get_total_allowance() is None
+    assert user.get_cap_spent() == "0.000000000000"
 
 
 def test_product_user_decimal_validation():
@@ -447,5 +486,40 @@ def test_product_user_decimal_validation():
 
     with pytest.raises(InvalidDecimalError):
         ProductUserCapResponse(amount="not_a_valid_decimal")
+
+
+def test_product_user_usage_mutual_fallback():
+    from zorveus.types import ProductUserResponse
+
+    # Test payload with this_month only
+    user_legacy = ProductUserResponse.model_validate({
+        "app_id": "app_1",
+        "external_user_id": "ext_1",
+        "usage": {
+            "this_month": {
+                "sell_cost": "0.500000000000",
+            },
+        },
+    })
+    assert user_legacy.usage.this_period is not None
+    assert user_legacy.usage.this_period.sell_cost == "0.500000000000"
+    assert user_legacy.get_usage_cost("this_period") == "0.500000000000"
+    assert user_legacy.get_usage_cost("this_month") == "0.500000000000"
+
+    # Test payload with this_period only
+    user_new = ProductUserResponse.model_validate({
+        "app_id": "app_1",
+        "external_user_id": "ext_1",
+        "usage": {
+            "this_period": {
+                "sell_cost": "0.750000000000",
+            },
+        },
+    })
+    assert user_new.usage.this_month is not None
+    assert user_new.usage.this_month.sell_cost == "0.750000000000"
+    assert user_new.get_usage_cost("this_period") == "0.750000000000"
+    assert user_new.get_usage_cost("this_month") == "0.750000000000"
+
 
 
