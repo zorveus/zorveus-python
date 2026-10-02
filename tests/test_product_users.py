@@ -253,3 +253,199 @@ async def test_async_product_user_credit_summary_and_grants():
     assert len(grants.credit_grants) == 1
     assert grants.credit_grants[0].credit_grant_id == "cgrt_2"
 
+
+@respx.mock
+def test_product_user_full_payload_with_allowance_and_getters():
+    from decimal import Decimal
+    service = ZorveusServiceClient(api_key="zrv_svc_test")
+
+    full_payload = {
+        "product_end_user_id": "peu_full_1",
+        "org_id": "org_abc",
+        "app_id": "app_xyz",
+        "external_user_id": "ext_full_1",
+        "display_name": "Full User",
+        "email_hash": "hash_xyz",
+        "status": "active",
+        "metadata": {"tier": "pro"},
+        "allowance_starts_at": "2026-10-02T02:07:26.535Z",
+        "last_app_connection_id": "conn_999",
+        "usage": {
+            "this_month": {
+                "sell_cost": "1.250000000000",
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "total_tokens": 1500,
+                "request_count": 10,
+            },
+            "total": {
+                "sell_cost": "3.500000000000",
+                "input_tokens": 3000,
+                "output_tokens": 1500,
+                "total_tokens": 4500,
+                "request_count": 25,
+            },
+        },
+        "cap": {
+            "source": "product_end_user",
+            "cap_rule_id": "rule_cap_1",
+            "amount": "20.000000000000",
+            "currency": "USD",
+            "period": "daily",
+            "spent_this_period": "5.000000000000",
+            "period_start": "2026-10-02T00:00:00.000Z",
+            "period_end": "2026-10-02T23:59:59.000Z",
+            "reset_at": "2026-10-03T00:00:00.000Z",
+            "status": "active",
+            "updated_at": "2026-10-02T02:07:26.535Z",
+        },
+        "credits": {
+            "currency": "USD",
+            "available_credits": "10.000000000000",
+            "active_grant_count": 2,
+            "expiring_soon_amount": "0.000000000000",
+            "spent_this_month": "2.000000000000",
+            "spent_total": "5.000000000000",
+            "last_grant_at": "2026-10-01T12:00:00.000Z",
+            "last_used_at": "2026-10-02T01:00:00.000Z",
+        },
+        "allowance": {
+            "app_connection_id": "conn_999",
+            "cap_source": "org",
+            "cap_rule_id": "rule_cap_1",
+            "credit_mode": "disabled",
+            "overrun_policy": "limit_output",
+            "currency": "USD",
+            "period": "daily",
+            "period_start": "2026-10-02T00:00:00.000Z",
+            "period_end": "2026-10-02T23:59:59.000Z",
+            "cap_amount": "20.000000000000",
+            "spent_this_period": "5.000000000000",
+            "remaining_base_allowance": "15.000000000000",
+            "available_credits": "10.000000000000",
+            "available_allowance": "25.000000000000",
+        },
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id").mock(
+        return_value=httpx.Response(200, json=full_payload)
+    )
+
+    user = service.product_users.get_by_external_id(
+        app_id="app_xyz",
+        external_user_id="ext_full_1",
+    )
+
+    # Core and metadata
+    assert user.product_end_user_id == "peu_full_1"
+    assert user.allowance_starts_at == "2026-10-02T02:07:26.535Z"
+    assert user.last_app_connection_id == "conn_999"
+
+    # Allowance sub-object
+    assert user.allowance is not None
+    assert user.allowance.available_allowance == "25.000000000000"
+    assert user.allowance.cap_amount == "20.000000000000"
+    assert user.allowance.spent_this_period == "5.000000000000"
+
+    # Cap sub-object
+    assert user.cap is not None
+    assert user.cap.amount == "20.000000000000"
+    assert user.cap.source == "product_end_user"
+
+    # Usage sub-object
+    assert user.usage is not None
+    assert user.usage.this_month.sell_cost == "1.250000000000"
+    assert user.usage.this_month.total_tokens == 1500
+    assert user.usage.total.sell_cost == "3.500000000000"
+
+    # Getters
+    assert user.get_available_allowance() == "25.000000000000"
+    assert user.total_available_allowance == "25.000000000000"
+    assert user.get_total_available_to_spend() == "25.000000000000"
+    assert user.total_available_to_spend == "25.000000000000"
+    assert user.get_available_credits() == "10.000000000000"
+    assert user.get_total_credits() == "10.000000000000"
+    assert user.total_credits == "10.000000000000"
+    assert user.get_total_allowance() == "20.000000000000"
+    assert user.get_cap_spent() == "5.000000000000"
+    assert user.cap_spent == "5.000000000000"
+    assert user.get_remaining_base_allowance() == "15.000000000000"
+    assert user.has_available_allowance() is True
+    assert user.get_usage_cost("this_month") == "1.250000000000"
+    assert user.get_usage_cost("total") == "3.500000000000"
+
+    # Decimal getters
+    assert user.get_available_allowance_decimal() == Decimal("25.000000000000")
+    assert user.get_total_available_to_spend_decimal() == Decimal("25.000000000000")
+    assert user.get_total_credits_decimal() == Decimal("10.000000000000")
+    assert user.get_cap_spent_decimal() == Decimal("5.000000000000")
+
+
+@respx.mock
+def test_product_user_fallback_when_allowance_absent():
+    from decimal import Decimal
+    service = ZorveusServiceClient(api_key="zrv_svc_test")
+
+    payload_no_allowance = {
+        "product_end_user_id": "peu_fallback",
+        "app_id": "app_xyz",
+        "external_user_id": "ext_fb",
+        "credits": {
+            "available_credits": "7.500000000000",
+        },
+        "cap": {
+            "amount": "10.000000000000",
+            "spent_this_period": "3.000000000000",
+        },
+    }
+
+    respx.get("https://api.zorveus.com/product-users/by-external-id").mock(
+        return_value=httpx.Response(200, json=payload_no_allowance)
+    )
+
+    user = service.product_users.get_by_external_id(
+        app_id="app_xyz",
+        external_user_id="ext_fb",
+    )
+
+    assert user.allowance is None
+    assert user.get_available_allowance() == "7.500000000000"
+    assert user.get_total_available_to_spend() == "7.500000000000"
+    assert user.total_available_to_spend == "7.500000000000"
+    assert user.get_available_credits() == "7.500000000000"
+    assert user.get_total_allowance() == "10.000000000000"
+    assert user.get_cap_spent() == "3.000000000000"
+    assert user.get_remaining_base_allowance() is None
+    assert user.has_available_allowance() is True
+
+
+def test_product_user_empty_financials():
+    from zorveus.types import ProductUserResponse
+
+    user = ProductUserResponse(
+        app_id="app_1",
+        external_user_id="ext_1",
+    )
+
+    assert user.get_available_allowance() == "0.000000000000"
+    assert user.get_total_available_to_spend() == "0.000000000000"
+    assert user.total_available_to_spend == "0.000000000000"
+    assert user.get_available_credits() == "0.000000000000"
+    assert user.get_total_allowance() is None
+    assert user.get_cap_spent() == "0.000000000000"
+    assert user.get_remaining_base_allowance() is None
+    assert user.has_available_allowance() is False
+    assert user.get_usage_cost("this_month") == "0.000000000000"
+
+
+def test_product_user_decimal_validation():
+    from zorveus import InvalidDecimalError
+    from zorveus.types import ProductUserAllowanceResponse, ProductUserCapResponse
+
+    with pytest.raises(InvalidDecimalError):
+        ProductUserAllowanceResponse(available_allowance="invalid_number")
+
+    with pytest.raises(InvalidDecimalError):
+        ProductUserCapResponse(amount="not_a_valid_decimal")
+
+

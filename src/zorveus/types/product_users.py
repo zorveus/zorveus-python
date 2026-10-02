@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, field_validator
 from zorveus.utils.decimal import validate_decimal_string
@@ -85,6 +86,84 @@ class ProductUserCreditGrantListResponse(BaseModel):
     credit_grants: List[CreditGrant]
 
 
+class ProductUserUsageBucket(BaseModel):
+    sell_cost: str = "0.000000000000"
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    request_count: int = 0
+
+    @field_validator("sell_cost", mode="before")
+    @classmethod
+    def validate_sell_cost(cls, v: Optional[str]) -> str:
+        if v is None:
+            return "0.000000000000"
+        return validate_decimal_string(str(v))
+
+
+class ProductUserUsageSummary(BaseModel):
+    this_month: Optional[ProductUserUsageBucket] = None
+    total: Optional[ProductUserUsageBucket] = None
+
+
+class ProductUserCapResponse(BaseModel):
+    source: Optional[str] = None
+    cap_rule_id: Optional[str] = None
+    amount: Optional[str] = None
+    currency: str = "USD"
+    period: Optional[str] = None
+    spent_this_period: Optional[str] = None
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
+    reset_at: Optional[str] = None
+    status: Optional[str] = "active"
+    updated_at: Optional[str] = None
+
+    @field_validator("amount", "spent_this_period", mode="before")
+    @classmethod
+    def validate_decimals(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return validate_decimal_string(str(v))
+
+
+ProductUserCap = ProductUserCapResponse
+
+
+class ProductUserAllowanceResponse(BaseModel):
+    app_connection_id: Optional[str] = None
+    cap_source: Optional[str] = None
+    cap_rule_id: Optional[str] = None
+    credit_mode: Optional[str] = None
+    overrun_policy: Optional[str] = None
+    currency: str = "USD"
+    period: Optional[str] = None
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
+    cap_amount: Optional[str] = None
+    spent_this_period: Optional[str] = None
+    remaining_base_allowance: Optional[str] = None
+    available_credits: Optional[str] = None
+    available_allowance: Optional[str] = None
+
+    @field_validator(
+        "cap_amount",
+        "spent_this_period",
+        "remaining_base_allowance",
+        "available_credits",
+        "available_allowance",
+        mode="before",
+    )
+    @classmethod
+    def validate_decimals(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return validate_decimal_string(str(v))
+
+
+ProductUserAllowance = ProductUserAllowanceResponse
+
+
 class ProductUserResponse(BaseModel):
     product_end_user_id: Optional[str] = None
     id: Optional[str] = None
@@ -96,10 +175,13 @@ class ProductUserResponse(BaseModel):
     email_hash: Optional[str] = None
     status: Optional[str] = "active"
     metadata: Optional[Dict[str, Any]] = None
-    usage: Optional[Dict[str, Any]] = None
-    cap: Optional[Dict[str, Any]] = None
+    allowance_starts_at: Optional[str] = None
+    last_app_connection_id: Optional[str] = None
+    usage: Optional[ProductUserUsageSummary] = None
+    cap: Optional[ProductUserCapResponse] = None
     credits: Optional[CreditSummary] = None
     credit_summary: Optional[CreditSummary] = None
+    allowance: Optional[ProductUserAllowanceResponse] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -113,6 +195,129 @@ class ProductUserResponse(BaseModel):
             self.credit_summary = self.credits
         elif not self.credits and self.credit_summary:
             self.credits = self.credit_summary
+
+    # --- Financial and allowance helper getters ---
+
+    def get_available_allowance(self) -> str:
+        """Returns the total spendable allowance available right now.
+
+        Uses allowance.available_allowance if present.
+        Falls back to credits.available_credits if no allowance object exists.
+        Returns '0.000000000000' if neither is available.
+        """
+        if self.allowance and self.allowance.available_allowance is not None:
+            return self.allowance.available_allowance
+
+        if self.credits and self.credits.available_credits is not None:
+            return self.credits.available_credits
+
+        return "0.000000000000"
+
+    def get_total_available_to_spend(self) -> str:
+        """Returns the total amount the user can spend right now across base allowance and credits."""
+        return self.get_available_allowance()
+
+    def get_available_credits(self) -> str:
+        """Returns available promotional credits."""
+        if self.credits and self.credits.available_credits is not None:
+            return self.credits.available_credits
+
+        if self.allowance and self.allowance.available_credits is not None:
+            return self.allowance.available_credits
+
+        return "0.000000000000"
+
+    def get_total_credits(self) -> str:
+        """Alias for get_available_credits."""
+        return self.get_available_credits()
+
+    def get_total_allowance(self) -> Optional[str]:
+        """Returns the configured cap amount."""
+        if self.allowance and self.allowance.cap_amount is not None:
+            return self.allowance.cap_amount
+
+        if self.cap and self.cap.amount is not None:
+            return self.cap.amount
+
+        return None
+
+    def get_cap_spent(self) -> str:
+        """Returns the amount spent against the cap in the current period."""
+        if self.allowance and self.allowance.spent_this_period is not None:
+            return self.allowance.spent_this_period
+
+        if self.cap and self.cap.spent_this_period is not None:
+            return self.cap.spent_this_period
+
+        return "0.000000000000"
+
+    def get_remaining_base_allowance(self) -> Optional[str]:
+        """Returns remaining base allowance before promotional credits are consumed."""
+        if not self.allowance:
+            return None
+        return self.allowance.remaining_base_allowance
+
+    def get_usage_cost(self, period: str = "this_month") -> str:
+        """Returns usage sell cost for 'this_month' or 'total'."""
+        if not self.usage:
+            return "0.000000000000"
+
+        if period == "this_month" and self.usage.this_month:
+            return self.usage.this_month.sell_cost
+
+        if period == "total" and self.usage.total:
+            return self.usage.total.sell_cost
+
+        return "0.000000000000"
+
+    def has_available_allowance(self) -> bool:
+        """Returns True if the user has spendable allowance or credits remaining."""
+        return Decimal(self.get_available_allowance()) > Decimal("0")
+
+    def get_available_allowance_decimal(self) -> Decimal:
+        """Returns available allowance as a Decimal."""
+        return Decimal(self.get_available_allowance())
+
+    def get_total_available_to_spend_decimal(self) -> Decimal:
+        """Returns total spendable amount as a Decimal."""
+        return self.get_available_allowance_decimal()
+
+    def get_available_credits_decimal(self) -> Decimal:
+        """Returns available credits as a Decimal."""
+        return Decimal(self.get_available_credits())
+
+    def get_total_credits_decimal(self) -> Decimal:
+        """Alias for get_available_credits_decimal."""
+        return self.get_available_credits_decimal()
+
+    def get_total_allowance_decimal(self) -> Optional[Decimal]:
+        """Returns configured cap amount as a Decimal if configured."""
+        val = self.get_total_allowance()
+        if val is None:
+            return None
+        return Decimal(val)
+
+    def get_cap_spent_decimal(self) -> Decimal:
+        """Returns cap spent this period as a Decimal."""
+        return Decimal(self.get_cap_spent())
+
+    # --- Property accessors ---
+
+    @property
+    def total_available_allowance(self) -> str:
+        return self.get_available_allowance()
+
+    @property
+    def total_available_to_spend(self) -> str:
+        return self.get_total_available_to_spend()
+
+    @property
+    def total_credits(self) -> str:
+        return self.get_available_credits()
+
+    @property
+    def cap_spent(self) -> str:
+        return self.get_cap_spent()
 
 
 class ProductUserListResponse(BaseModel):
@@ -146,4 +351,5 @@ class RevokeCreditResponse(BaseModel):
 
 GrantProductUserCreditsResponse = GrantCreditResponse
 ProductUser = ProductUserResponse
+
 
