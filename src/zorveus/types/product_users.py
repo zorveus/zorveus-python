@@ -102,8 +102,17 @@ class ProductUserUsageBucket(BaseModel):
 
 
 class ProductUserUsageSummary(BaseModel):
+    this_period: Optional[ProductUserUsageBucket] = None
     this_month: Optional[ProductUserUsageBucket] = None
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
     total: Optional[ProductUserUsageBucket] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.this_period and self.this_month:
+            self.this_period = self.this_month
+        elif not self.this_month and self.this_period:
+            self.this_month = self.this_period
 
 
 class ProductUserCapResponse(BaseModel):
@@ -179,6 +188,7 @@ class ProductUserResponse(BaseModel):
     last_app_connection_id: Optional[str] = None
     usage: Optional[ProductUserUsageSummary] = None
     cap: Optional[ProductUserCapResponse] = None
+    direct_cap: Optional[ProductUserCapResponse] = None
     credits: Optional[CreditSummary] = None
     credit_summary: Optional[CreditSummary] = None
     allowance: Optional[ProductUserAllowanceResponse] = None
@@ -232,7 +242,7 @@ class ProductUserResponse(BaseModel):
         return self.get_available_credits()
 
     def get_total_allowance(self) -> Optional[str]:
-        """Returns the configured cap amount."""
+        """Returns the configured cap amount from allowance or active cap (ignoring direct_cap)."""
         if self.allowance and self.allowance.cap_amount is not None:
             return self.allowance.cap_amount
 
@@ -242,7 +252,7 @@ class ProductUserResponse(BaseModel):
         return None
 
     def get_cap_spent(self) -> str:
-        """Returns the amount spent against the cap in the current period."""
+        """Returns the amount spent against the cap in the current period from allowance or active cap."""
         if self.allowance and self.allowance.spent_this_period is not None:
             return self.allowance.spent_this_period
 
@@ -257,13 +267,15 @@ class ProductUserResponse(BaseModel):
             return None
         return self.allowance.remaining_base_allowance
 
-    def get_usage_cost(self, period: str = "this_month") -> str:
-        """Returns usage sell cost for 'this_month' or 'total'."""
+    def get_usage_cost(self, period: str = "this_period") -> str:
+        """Returns usage sell cost for 'this_period' ('this_month') or 'total'."""
         if not self.usage:
             return "0.000000000000"
 
-        if period == "this_month" and self.usage.this_month:
-            return self.usage.this_month.sell_cost
+        if period in ("this_period", "this_month"):
+            bucket = self.usage.this_period or self.usage.this_month
+            if bucket:
+                return bucket.sell_cost
 
         if period == "total" and self.usage.total:
             return self.usage.total.sell_cost
@@ -318,19 +330,6 @@ class ProductUserResponse(BaseModel):
     @property
     def cap_spent(self) -> str:
         return self.get_cap_spent()
-
-
-class ProductUserListResponse(BaseModel):
-    product_users: List[ProductUserResponse] = []
-    data: List[ProductUserResponse] = []
-    next_cursor: Optional[str] = None
-    has_more: bool = False
-
-    def model_post_init(self, __context: Any) -> None:
-        if not self.data and self.product_users:
-            self.data = self.product_users
-        elif not self.product_users and self.data:
-            self.product_users = self.data
 
 
 class UpsertProductUserResponse(BaseModel):

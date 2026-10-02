@@ -482,11 +482,15 @@ Module: `zorveus.types`
 - `ModelListResponse`: `object`, `data: List[ModelObject]`
 
 ### Product users & credit models
-- `ProductUser`: `id`, `app_id`, `external_user_id`, `display_name`, `email`, `created_at`, `updated_at`
-- `CreditSummary`: `available_credits`, `total_granted`, `total_spent`, `currency`
-- `CreditGrant`: `id`, `product_user_id`, `amount`, `source`, `reason`, `created_at`
-- `ProductUserResponse`: `product_user`, `credit_summary`
-- `GrantCreditResponse`: `credit_grant`, `credit_summary`
+- `ProductUserResponse` (alias `ProductUser`): `product_end_user_id`, `id`, `app_id`, `external_user_id`, `display_name`, `email`, `email_hash`, `status`, `metadata`, `allowance_starts_at`, `last_app_connection_id`, `usage`, `cap`, `direct_cap`, `credits`, `allowance`, `created_at`, `updated_at`.
+  - Getters: `get_available_allowance()`, `get_total_available_to_spend()`, `get_available_credits()`, `get_total_credits()`, `get_total_allowance()`, `get_cap_spent()`, `get_remaining_base_allowance()`, `get_usage_cost(period="this_period")`, `has_available_allowance()`, `get_available_allowance_decimal()`, `get_total_available_to_spend_decimal()`, `get_total_credits_decimal()`, `get_total_allowance_decimal()`, `get_cap_spent_decimal()`.
+  - Properties: `total_available_allowance`, `total_available_to_spend`, `total_credits`, `cap_spent`.
+- `ProductUserAllowanceResponse` (alias `ProductUserAllowance`): `app_connection_id`, `cap_source`, `cap_rule_id`, `credit_mode`, `overrun_policy`, `currency`, `period`, `period_start`, `period_end`, `cap_amount`, `spent_this_period`, `remaining_base_allowance`, `available_credits`, `available_allowance`.
+- `ProductUserCapResponse` (alias `ProductUserCap`): `source`, `cap_rule_id`, `amount`, `currency`, `period`, `spent_this_period`, `period_start`, `period_end`, `reset_at`, `status`, `updated_at`.
+- `ProductUserUsageSummary`: `this_period`, `period_start`, `period_end`, `total` (each bucket with `sell_cost`, `input_tokens`, `output_tokens`, `total_tokens`, `request_count`).
+- `CreditSummary`: `available_credits`, `active_grant_count`, `expiring_soon_amount`, `spent_this_month`, `spent_total`, `currency`.
+- `CreditGrant`: `id`, `product_user_id`, `amount`, `remaining_amount`, `currency`, `source`, `reason`, `created_at`.
+- `GrantCreditResponse`: `credit_grant`, `credit_summary`, `product_user`.
 
 ### Provider credentials models
 - `ProviderCredential`: `id`, `app_id`, `provider`, `created_at`, `updated_at`
