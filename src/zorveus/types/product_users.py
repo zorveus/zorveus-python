@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Literal
 from pydantic import BaseModel, field_validator
 from zorveus.utils.decimal import validate_decimal_string
 
@@ -139,6 +139,17 @@ class ProductUserCapResponse(BaseModel):
 ProductUserCap = ProductUserCapResponse
 
 
+class ProductUserAllowanceAdjustment(BaseModel):
+    type: Literal["prorate_increase"]
+    configured_cap_amount: str
+    effective_at: str
+
+    @field_validator("configured_cap_amount")
+    @classmethod
+    def validate_configured_cap_amount(cls, value: str) -> str:
+        return validate_decimal_string(value)
+
+
 class ProductUserAllowanceResponse(BaseModel):
     app_connection_id: Optional[str] = None
     cap_source: Optional[str] = None
@@ -154,6 +165,7 @@ class ProductUserAllowanceResponse(BaseModel):
     remaining_base_allowance: Optional[str] = None
     available_credits: Optional[str] = None
     available_allowance: Optional[str] = None
+    adjustment: Optional[ProductUserAllowanceAdjustment] = None
 
     @field_validator(
         "cap_amount",

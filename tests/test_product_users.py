@@ -522,4 +522,28 @@ def test_product_user_usage_mutual_fallback():
     assert user_new.get_usage_cost("this_month") == "0.750000000000"
 
 
+def test_prorated_allowance_uses_effective_cap_and_preserves_adjustment():
+    from zorveus.types import ProductUserResponse
 
+    user = ProductUserResponse.model_validate(
+        {
+            **SAMPLE_USER_PAYLOAD,
+            "cap": {"amount": "50.000000000000"},
+            "allowance": {
+                "cap_amount": "30.000000000000",
+                "spent_this_period": "8.000000000000",
+                "available_allowance": "22.000000000000",
+                "adjustment": {
+                    "type": "prorate_increase",
+                    "configured_cap_amount": "50.000000000000",
+                    "effective_at": "2026-06-16T00:00:00Z",
+                },
+            },
+        },
+    )
+    assert user.get_total_allowance() == "30.000000000000"
+    assert user.get_available_allowance() == "22.000000000000"
+    assert user.allowance is not None
+    assert user.allowance.adjustment is not None
+    assert user.cap is not None
+    assert user.allowance.adjustment.configured_cap_amount == user.cap.amount
