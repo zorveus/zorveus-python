@@ -5,6 +5,7 @@ from zorveus.utils.decimal import validate_decimal_string
 
 
 class CreditSummary(BaseModel):
+    remaining_credit_units: Optional[str] = None
     currency: str = "USD"
     available_credits: str
     active_grant_count: int = 0
@@ -46,7 +47,10 @@ ProductUserCreditSummaryResponse = CreditSummary
 
 
 class CreditGrant(BaseModel):
+    credit_units_per_usd: Optional[str] = None
+    remaining_credit_units: Optional[str] = None
     credit_grant_id: Optional[str] = None
+    external_reference: Optional[str] = None
     id: Optional[str] = None
     org_id: Optional[str] = None
     app_id: Optional[str] = None
@@ -151,6 +155,7 @@ class ProductUserAllowanceAdjustment(BaseModel):
 
 
 class ProductUserAllowanceResponse(BaseModel):
+    remaining_credit_units: Optional[str] = None
     app_connection_id: Optional[str] = None
     cap_source: Optional[str] = None
     cap_rule_id: Optional[str] = None
@@ -364,3 +369,14 @@ GrantProductUserCreditsResponse = GrantCreditResponse
 ProductUser = ProductUserResponse
 
 
+class ProductUserAllowanceDebtSummaryResponse(BaseModel):
+    outstanding_amount: str
+    repaid_by_credits_total: str
+    repaid_by_base_total: str
+    currency: str
+    oldest_debt_at: Optional[str] = None
+
+    @field_validator("outstanding_amount", "repaid_by_credits_total", "repaid_by_base_total")
+    @classmethod
+    def validate_amount(cls, value: str) -> str:
+        return validate_decimal_string(value)

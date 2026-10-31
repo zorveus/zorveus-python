@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Type, TypeVar, Iterator
+from typing import Optional, Dict, Any, Type, TypeVar, Mapping, Iterator
 import httpx
 from pydantic import BaseModel
 from zorveus import __version__
@@ -203,9 +203,11 @@ class SyncHTTPTransport:
         api_key: str,
         base_url: str,
         timeout: float = 60.0,
+        default_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         headers = {
+            **(default_headers or {}),
             "Authorization": f"Bearer {api_key}",
             "User-Agent": f"Zorveus-Python/{__version__}",
             "Content-Type": "application/json",
@@ -224,9 +226,10 @@ class SyncHTTPTransport:
         json_data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         """Sends HTTP request and validates JSON response against Pydantic model."""
-        response = self.client.request(method, path, json=json_data, params=params)
+        response = self.client.request(method, path, json=json_data, params=params, headers=headers)
         raise_for_status(response)
 
         if response_model is None:
@@ -254,8 +257,9 @@ class SyncHTTPTransport:
         *,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
-        return self.request("GET", path, params=params, response_model=response_model)
+        return self.request("GET", path, params=params, response_model=response_model, headers=headers)
 
     def post(
         self,
@@ -263,12 +267,14 @@ class SyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return self.request(
             "POST",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     def put(
@@ -277,12 +283,14 @@ class SyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return self.request(
             "PUT",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     def patch(
@@ -291,12 +299,14 @@ class SyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return self.request(
             "PATCH",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     def delete(
@@ -305,12 +315,14 @@ class SyncHTTPTransport:
         *,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return self.request(
             "DELETE",
             path,
             params=params,
             response_model=response_model,
+            headers=headers,
         )
 
     def stream(
@@ -320,9 +332,10 @@ class SyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Type[T],
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Iterator[T]:
         """Sends HTTP streaming request and yields parsed SSE objects."""
-        req = self.client.build_request(method, path, json=json_data)
+        req = self.client.build_request(method, path, json=json_data, headers=headers)
         response = self.client.send(req, stream=True)
         if not response.is_success:
             response.read()

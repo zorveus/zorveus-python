@@ -1,6 +1,8 @@
 from typing import Any, List, Optional
 from pydantic import BaseModel
 
+from zorveus.types.usage_metadata import UsageMetadata
+
 
 class UsageResponse(BaseModel):
     app_connection_id: Optional[str] = None
@@ -34,12 +36,14 @@ class UsageResponse(BaseModel):
 
 
 class UsageEvent(BaseModel):
+    charged_credit_units: Optional[str] = None
     """A single inference usage event returned by the usage-events API.
 
     Monetary fields are decimal strings. Parse them with Decimal(), not float().
     Cache fields follow the guide's cache-aware settlement spec.
     """
 
+    usage_metadata: Optional[UsageMetadata] = None
     usage_event_id: Optional[str] = None
     zorveus_request_id: Optional[str] = None
     app_id: Optional[str] = None

@@ -1,8 +1,12 @@
 import asyncio
 import os
 import time
-from typing import Optional, Dict, Any, Mapping
+from typing import Any, Dict, Final, Mapping, Optional
+
+from pydantic import TypeAdapter
+
 from zorveus._version import __version__
+from zorveus.types.usage_metadata import UsageMetadata
 
 try:
     from openai import OpenAI as _OpenAI, AsyncOpenAI as _AsyncOpenAI
@@ -12,6 +16,9 @@ except ImportError:
     HAS_OPENAI = False
     _OpenAI = object  # type: ignore
     _AsyncOpenAI = object  # type: ignore
+
+
+_USAGE_METADATA: Final = TypeAdapter(UsageMetadata)
 
 
 def _merge_zorveus_metadata(
@@ -39,12 +46,19 @@ def _merge_zorveus_metadata(
     email = kwargs.pop("email", client_email) or kwargs.pop("product_user_email", None)
     user_meta = kwargs.pop("user_metadata", client_user_metadata)
     product_user_arg = kwargs.pop("product_user", None)
+    raw_usage_metadata: Final = kwargs.pop("usage_metadata", None)
+    usage_metadata: Final = (
+        _USAGE_METADATA.validate_python(raw_usage_metadata) if raw_usage_metadata is not None else None
+    )
 
-    if not any([ext_id, peu_id, display_name, email, user_meta, product_user_arg]):
+    if not any([ext_id, peu_id, display_name, email, user_meta, product_user_arg]) and usage_metadata is None:
         return existing_extra_body
 
     extra_body = dict(existing_extra_body or {})
-    metadata = dict(extra_body.get("metadata") or {})
+    metadata = {
+        **dict(extra_body.get("metadata") or {}),
+        **({"usage_metadata": usage_metadata} if usage_metadata is not None else {}),
+    }
 
     if ext_id and "external_user_id" not in metadata:
         metadata["external_user_id"] = ext_id

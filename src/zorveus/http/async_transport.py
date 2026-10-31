@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Type, TypeVar, AsyncIterator
+from typing import Optional, Dict, Any, Type, TypeVar, Mapping, AsyncIterator
 import httpx
 from pydantic import BaseModel
 from zorveus import __version__
@@ -16,9 +16,11 @@ class AsyncHTTPTransport:
         api_key: str,
         base_url: str,
         timeout: float = 60.0,
+        default_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         headers = {
+            **(default_headers or {}),
             "Authorization": f"Bearer {api_key}",
             "User-Agent": f"Zorveus-Python/{__version__}",
             "Content-Type": "application/json",
@@ -37,10 +39,11 @@ class AsyncHTTPTransport:
         json_data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         """Sends async HTTP request and validates JSON response against Pydantic model."""
         response = await self.client.request(
-            method, path, json=json_data, params=params
+            method, path, json=json_data, params=params, headers=headers
         )
         raise_for_status(response)
 
@@ -69,12 +72,14 @@ class AsyncHTTPTransport:
         *,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return await self.request(
             "GET",
             path,
             params=params,
             response_model=response_model,
+            headers=headers,
         )
 
     async def post(
@@ -83,12 +88,14 @@ class AsyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return await self.request(
             "POST",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     async def put(
@@ -97,12 +104,14 @@ class AsyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return await self.request(
             "PUT",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     async def patch(
@@ -111,12 +120,14 @@ class AsyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return await self.request(
             "PATCH",
             path,
             json_data=json_data,
             response_model=response_model,
+            headers=headers,
         )
 
     async def delete(
@@ -125,12 +136,14 @@ class AsyncHTTPTransport:
         *,
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         return await self.request(
             "DELETE",
             path,
             params=params,
             response_model=response_model,
+            headers=headers,
         )
 
     async def stream(
@@ -140,9 +153,10 @@ class AsyncHTTPTransport:
         *,
         json_data: Optional[Dict[str, Any]] = None,
         response_model: Type[T],
+        headers: Optional[Mapping[str, str]] = None,
     ) -> AsyncIterator[T]:
         """Sends async HTTP streaming request and yields parsed SSE objects."""
-        req = self.client.build_request(method, path, json=json_data)
+        req = self.client.build_request(method, path, json=json_data, headers=headers)
         response = await self.client.send(req, stream=True)
         if not response.is_success:
             await response.aread()

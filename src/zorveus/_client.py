@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Mapping, Optional
 from zorveus.resources.chat import ChatResource, AsyncChatResource
 from zorveus.resources.embeddings import EmbeddingsResource, AsyncEmbeddingsResource
 from zorveus.resources.models import ModelsResource, AsyncModelsResource
@@ -17,6 +17,7 @@ class Zorveus:
         gateway_url: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
+        default_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         key = api_key or os.environ.get("ZORVEUS_INFERENCE_KEY")
         if not key:
@@ -28,16 +29,20 @@ class Zorveus:
             clean_gw = gateway.rstrip("/")
             control_base = clean_gw[:-3] if clean_gw.endswith("/v1") else clean_gw
 
-        self._transport = SyncHTTPTransport(api_key=key, base_url=gateway, timeout=timeout)
-        self._control_transport = SyncHTTPTransport(api_key=key, base_url=control_base, timeout=timeout)
+        self._transport = SyncHTTPTransport(
+            api_key=key, base_url=gateway, timeout=timeout, default_headers=default_headers
+        )
+        self._control_transport = SyncHTTPTransport(
+            api_key=key, base_url=control_base, timeout=timeout, default_headers=default_headers
+        )
 
         self.chat = ChatResource(self._transport)
         self.embeddings = EmbeddingsResource(self._transport)
         self.models = ModelsResource(self._transport)
 
-    def get_usage(self) -> UsageResponse:
+    def get_usage(self, *, extra_headers: Optional[Mapping[str, str]] = None) -> UsageResponse:
         """Query live spend cap, period spend, and remaining allowance."""
-        return self._control_transport.get("/inference-keys/usage", response_model=UsageResponse)
+        return self._control_transport.get("/inference-keys/usage", response_model=UsageResponse, headers=extra_headers)
 
     def close(self) -> None:
         self._transport.close()
@@ -54,6 +59,7 @@ class AsyncZorveus:
         gateway_url: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
+        default_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         key = api_key or os.environ.get("ZORVEUS_INFERENCE_KEY")
         if not key:
@@ -65,16 +71,22 @@ class AsyncZorveus:
             clean_gw = gateway.rstrip("/")
             control_base = clean_gw[:-3] if clean_gw.endswith("/v1") else clean_gw
 
-        self._transport = AsyncHTTPTransport(api_key=key, base_url=gateway, timeout=timeout)
-        self._control_transport = AsyncHTTPTransport(api_key=key, base_url=control_base, timeout=timeout)
+        self._transport = AsyncHTTPTransport(
+            api_key=key, base_url=gateway, timeout=timeout, default_headers=default_headers
+        )
+        self._control_transport = AsyncHTTPTransport(
+            api_key=key, base_url=control_base, timeout=timeout, default_headers=default_headers
+        )
 
         self.chat = AsyncChatResource(self._transport)
         self.embeddings = AsyncEmbeddingsResource(self._transport)
         self.models = AsyncModelsResource(self._transport)
 
-    async def get_usage(self) -> UsageResponse:
+    async def get_usage(self, *, extra_headers: Optional[Mapping[str, str]] = None) -> UsageResponse:
         """Query live spend cap, period spend, and remaining allowance asynchronously."""
-        return await self._control_transport.get("/inference-keys/usage", response_model=UsageResponse)
+        return await self._control_transport.get(
+            "/inference-keys/usage", response_model=UsageResponse, headers=extra_headers
+        )
 
     async def close(self) -> None:
         await self._transport.close()

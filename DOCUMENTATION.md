@@ -1,512 +1,297 @@
-# Zorveus Python SDK (`zorveus`) codebase documentation
+# Python service action guide
 
-Comprehensive reference documentation for the `zorveus` Python SDK, covering installation, environment setup, architecture, Data Plane inference clients, OpenAI SDK integration, Control Plane administration, OAuth 2.0 PKCE utilities, error handling, and Pydantic v2 schemas.
+Start with the [README](README.md) for installation and inference. All `service` examples below run on your backend using an organization service key
 
----
+## Create a service client
 
-## 1. Overview and platform architecture
-
-The `zorveus` SDK provides Python 3.9+ developers with typed, synchronous, and asynchronous interfaces for the Zorveus AI Infrastructure Platform.
-
-```text
-+-------------------------------------------------------------------------------+
-|                             Zorveus Platform API                              |
-+---------------------------------------+---------------------------------------+
-                                        |
-     +----------------------------------+----------------------------------+
-     |                                                                     |
-     v                                                                     v
-+---------------------------------------+ +---------------------------------------+
-|        AI Gateway (Data Plane)        | |     Control Plane (Management API)    |
-|   https://api.zorveus.com/v1          | |     https://api.zorveus.com         |
-|   (Inference Key / User OAuth Token)  | |     (Organization Service Key)      |
-+---------------------------------------+ +---------------------------------------+
-| • POST /v1/chat/completions           | | • PUT  /product-users/by-external-id |
-| • GET  /v1/models                     | | • GET  /product-users/by-external-id |
-| • GET  /v1/inference-keys/usage       | | • POST /product-users/.../grants    |
-|                                       | | • POST /provider-credentials        |
-|                                       | | • POST /oauth/token                 |
-+---------------------------------------+ +---------------------------------------+
-```
-
----
-
-## 2. Installation and environment variables
-
-### 2.1 Installation
-
-Standard installation:
-```bash
-pip install zorveus
-```
-
-With official OpenAI SDK adapter extra:
-```bash
-pip install zorveus[openai]
-```
-
-Development dependencies:
-```bash
-pip install zorveus[dev]
-```
-
-### 2.2 Environment variables
-
-| Variable | Type | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `ZORVEUS_INFERENCE_KEY` | `str` | Inference API Key (`zrv_live_...`) for Data Plane | `None` |
-| `ZORVEUS_GATEWAY_URL` | `str` | Data Plane gateway endpoint URL | `https://api.zorveus.com/v1` |
-| `ZORVEUS_SERVICE_KEY` | `str` | Organization Service Key (`zrv_svc_...`) for Control Plane | `None` |
-| `ZORVEUS_BASE_URL` | `str` | Control Plane platform endpoint URL | `https://api.zorveus.com` |
-| `ZORVEUS_CLIENT_ID` | `str` | OAuth 2.0 application client ID | `None` |
-| `ZORVEUS_CLIENT_SECRET` | `str` | OAuth 2.0 application client secret | `None` |
-| `ZORVEUS_REDIRECT_URI` | `str` | OAuth 2.0 redirect URL | `None` |
-
-Environment template file: [examples/.env.example](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/.env.example)
-
----
-
-## 3. Data Plane inference client (`Zorveus` and `AsyncZorveus`)
-
-Module: `zorveus._client`
-
-### 3.1 Synchronous client (`Zorveus`)
-
-#### Constructor
-```python
-Zorveus(
-    api_key: Optional[str] = None,
-    *,
-    gateway_url: Optional[str] = None,
-    timeout: float = 60.0
-)
-```
-If `api_key` is omitted, reads `ZORVEUS_INFERENCE_KEY` from `os.environ`.
-If `gateway_url` is omitted, reads `ZORVEUS_GATEWAY_URL` or defaults to `https://api.zorveus.com/v1`.
-
-#### Chat completions (`client.chat.completions.create`)
-```python
-client.chat.completions.create(
-    *,
-    model: str,
-    messages: List[Union[ChatMessage, Dict[str, Any]]],
-    stream: bool = False,
-    temperature: Optional[float] = None,
-    top_p: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    zorveus_metadata: Optional[Dict[str, Any]] = None,
-    **extra_kwargs: Any
-) -> Union[ChatCompletionResponse, Iterator[ChatCompletionChunk]]
-```
-- When `stream=False` (default): Returns `ChatCompletionResponse`.
-- When `stream=True`: Returns `Iterator[ChatCompletionChunk]` parsing Server-Sent Events (SSE).
-
-Example:
-```python
-from zorveus import Zorveus
-
-client = Zorveus(api_key="zrv_live_123...")
-
-# Non-streaming
-resp = client.chat.completions.create(
-    model="openai/gpt-4.1-mini",
-    messages=[{"role": "user", "content": "Explain quantum computing."}],
-    zorveus_metadata={"external_user_id": "usr_101"}
-)
-print(resp.choices[0].message.content)
-
-# Streaming
-stream = client.chat.completions.create(
-    model="openai/gpt-4.1-mini",
-    messages=[{"role": "user", "content": "Count from 1 to 5."}],
-    stream=True
-)
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="", flush=True)
-```
-
-#### Model discovery (`client.models`)
-- `client.models.list() -> ModelListResponse`: Returns list of available models.
-- `client.models.get(model_id: str) -> ModelObject`: Retrieves metadata for a single model.
-
-#### Live spend queries (`client.get_usage()`)
-```python
-usage = client.get_usage()
-# UsageResponse fields:
-# - key_id: Optional[str]
-# - spend_cap: Optional[str]
-# - period_spend: Optional[str]
-# - remaining_allowance: Optional[str]
-# - currency: str ("USD")
-```
-
----
-
-### 3.2 Asynchronous client (`AsyncZorveus`)
-
-Equivalent asynchronous interface powered by `httpx.AsyncClient`.
-
-```python
-import asyncio
-from zorveus import AsyncZorveus
-
-async def main():
-    client = AsyncZorveus(api_key="zrv_live_123...")
-
-    resp = await client.chat.completions.create(
-        model="openai/gpt-4.1-mini",
-        messages=[{"role": "user", "content": "Hello async!"}]
-    )
-    print(resp.choices[0].message.content)
-
-    usage = await client.get_usage()
-    print("Spend cap:", usage.spend_cap)
-
-    await client.close()
-
-asyncio.run(main())
-```
-
----
-
-## 4. Framework Adapters (OpenAI, LangChain, LlamaIndex)
-
-Module: `zorveus.openai`, `zorveus.adapters.langchain`, `zorveus.adapters.llamaindex`
-
-### 4.1 OpenAI SDK integration (`ZorveusOpenAI` and `AsyncZorveusOpenAI`)
-
-`ZorveusOpenAI` and `AsyncZorveusOpenAI` inherit directly from official `openai.OpenAI` and `openai.AsyncOpenAI` classes.
-
-```bash
-pip install zorveus[openai]
-```
-
-```python
-from zorveus.openai import ZorveusOpenAI
-
-client = ZorveusOpenAI(
-    api_key="zrv_live_123...",
-    external_user_id="cus_12345",
-    display_name="Ada Lovelace",
-    email="ada@example.com",
-    user_metadata={"plan": "pro"}
-)
-```
-
----
-
-### 4.2 LangChain adapter (`ChatZorveus`)
-
-Inherits directly from `ChatOpenAI` in `langchain-openai`.
-
-```bash
-pip install zorveus[langchain]
-```
-
-```python
-from zorveus.adapters.langchain import ChatZorveus
-
-llm = ChatZorveus(
-    api_key="zrv_live_123...",
-    model="openai/gpt-4.1-mini",
-    external_user_id="usr_sara_101",
-    display_name="Sara Connor",
-    email="sara@example.com",
-    user_metadata={"plan": "pro"}
-)
-
-response = llm.invoke("Explain neural networks.")
-print(response.content)
-```
-
----
-
-### 4.3 LlamaIndex adapter (`ZorveusLLM`)
-
-Inherits directly from `OpenAI` in `llama_index.llms.openai`.
-
-```bash
-pip install zorveus[llamaindex]
-```
-
-```python
-from zorveus.adapters.llamaindex import ZorveusLLM
-
-llm = ZorveusLLM(
-    api_key="zrv_live_123...",
-    model="openai/gpt-4.1-mini",
-    external_user_id="usr_sara_101",
-    display_name="Sara Connor",
-    email="sara@example.com",
-    user_metadata={"plan": "pro"}
-)
-
-response = llm.complete("What is machine learning?")
-print(response.text)
-```
-
-### Supported endpoints
-- `client.chat.completions.create(...)`
-- `client.responses.create(...)` (OpenAI Responses API `/v1/responses`)
-
-### User metadata payload translation
-`ZorveusOpenAI` automatically translates client-level or per-request parameters (`external_user_id`, `display_name`, `email`, `user_metadata`) into the JSON request body `extra_body["metadata"]`:
-
-```python
-from zorveus.openai import ZorveusOpenAI
-
-client = ZorveusOpenAI(
-    api_key="zrv_live_123...",
-    external_user_id="cus_12345",
-    display_name="Ada Lovelace",
-    email="ada@example.com",
-    user_metadata={"plan": "pro", "workspace_id": "workspace_789"}
-)
-
-response = client.chat.completions.create(
-    model="openai/gpt-4.1-mini",
-    messages=[{"role": "user", "content": "Hello from OpenAI wrapper!"}]
-)
-```
-
-Dispatched JSON HTTP request body:
-```json
-{
-  "model": "openai/gpt-4.1-mini",
-  "messages": [{"role": "user", "content": "Hello from OpenAI wrapper!"}],
-  "metadata": {
-    "external_user_id": "cus_12345",
-    "product_user": {
-      "display_name": "Ada Lovelace",
-      "email": "ada@example.com",
-      "metadata": {
-        "plan": "pro",
-        "workspace_id": "workspace_789"
-      }
-    }
-  }
-}
-```
-
-Per-request override:
-```python
-response = client.chat.completions.create(
-    model="openai/gpt-4.1-mini",
-    messages=[{"role": "user", "content": "Hi"}],
-    external_user_id="cus_99999",
-    display_name="Grace Hopper",
-    email="grace@example.com",
-    user_metadata={"plan": "enterprise"}
-)
-```
-
----
-
-## 5. Control Plane administration client (`ZorveusServiceClient`)
-
-Module: `zorveus._service_client`
-
-Used by backend applications to manage product end-users, issue credit grants, and administer provider credentials via Organization Service Keys (`zrv_svc_...`).
-
-### 5.1 Product users resource (`service.product_users`)
-
-#### Profile upsert (`create_or_update`)
-```python
-service.product_users.create_or_update(
-    *,
-    app_id: str,
-    external_user_id: str,
-    display_name: Optional[str] = None,
-    email: Optional[str] = None
-) -> ProductUserResponse
-```
-PUT `/product-users/by-external-id`
-
-#### Profile fetch (`get_by_external_id`)
-```python
-service.product_users.get_by_external_id(
-    *,
-    app_id: str,
-    external_user_id: str
-) -> ProductUserResponse
-```
-GET `/product-users/by-external-id`
-
-#### Credit grant (`grant_credit_by_external_id`)
-```python
-service.product_users.grant_credit_by_external_id(
-    *,
-    app_id: str,
-    external_user_id: str,
-    amount: str,
-    source: Optional[str] = None,
-    reason: Optional[str] = None
-) -> GrantCreditResponse
-```
-POST `/product-users/by-external-id/grants`
-
-> [!IMPORTANT]
-> The `amount` parameter requires high-precision string validation (up to 12 decimal places, e.g. `"25.000000000000"`). Invalid decimal formats raise `InvalidDecimalError`.
-
-Example:
 ```python
 from zorveus import ZorveusServiceClient
 
-service = ZorveusServiceClient(api_key="zrv_svc_123...")
+service = ZorveusServiceClient()
+```
 
-grant = service.product_users.grant_credit_by_external_id(
+The client reads `ZORVEUS_SERVICE_KEY`. Pass `api_key=` explicitly when your secret store supplies the value. It uses `https://api.zorveus.com`, without `/v1`; override with `base_url=` for another environment. Call `service.close()` on shutdown. `AsyncZorveusServiceClient` has matching methods and requires `await`, including shutdown
+
+| Scope | Actions |
+| --- | --- |
+| `product_users:read` | Read profiles, credit summaries, grants, and allowance debt |
+| `product_users:write` | Upsert customers and grant credits, including product-user reads |
+
+Register apps, configure caps, manage existing connections, change product-user status, revoke credit grants, and configure webhooks in the dashboard. The legacy `revoke_credit()` SDK method rejects locally with `zorveus_dashboard_session_required`
+
+## Set customer details and the subscription anchor
+
+```python
+result = service.product_users.create_or_update(
     app_id="app_123",
-    external_user_id="usr_101",
-    amount="25.000000000000",
-    source="promotion",
-    reason="Welcome Bonus"
+    external_user_id="customer_42",
+    display_name="Example user",
+    metadata={"plan": "pro"},
+    allowance_starts_at="2026-10-10T00:00:00Z",
 )
-print("Available balance:", grant.credit_summary.available_credits)
+print(result.created)
+print(result.product_user.external_user_id)
+print(result.product_user.allowance_starts_at)
 ```
 
----
+Get the user and plan from trusted server state. Omitting `allowance_starts_at` preserves the stored anchor. A timestamp sets it; explicit `None` clears it. For allowance increases between plan keys, read [prorated plan changes](https://docs.zorveus.com/startups/prorated-plan-changes). The upsert policy does not select a new plan key by itself
 
-### 5.2 Provider credentials resource (`service.provider_credentials`)
+## Read allowance and debt
 
-#### Register credential (`create`)
 ```python
-service.provider_credentials.create(
-    *,
-    app_id: str,
-    provider: str,
-    api_key: str
-) -> ProviderCredentialResponse
-```
-POST `/provider-credentials`
+profile = service.product_users.get_by_external_id(
+    app_id="app_123", external_user_id="customer_42",
+)
+print(profile.get_total_available_to_spend())
+print(profile.get_total_available_to_spend_decimal())
 
-#### List credentials (`list`)
+debt = service.product_users.get_allowance_debt_by_external_id(
+    app_id="app_123", external_user_id="customer_42", currency="USD",
+)
+print(debt.outstanding_amount, debt.repaid_by_credits_total, debt.repaid_by_base_total)
+```
+
+A missing user returns `404` by default. To create one during a read, pass `upsert_if_missing=True`. The profile's spendable balance includes base allowance and credits. It uses the applicable direct cap or last connection cap. A plan change can select a different connection, so do not use the old allowance to reject a request on the new key
+
+Helpers read `allowance.available_allowance`, fall back to available credits, then zero. Zero is not evidence of exhaustion on an uncapped connection. A positive balance permits an attempt under an enforced cap but does not guarantee that the request will fit. The gateway still checks estimates, active reservations, and funding
+
+Monetary fields remain decimal strings. Use the `*_decimal()` profile helpers or `decimal.Decimal` for arithmetic
+
+## Opt into creating missing users on reads
+
 ```python
-service.provider_credentials.list(
-    *,
-    app_id: str
-) -> ProviderCredentialListResponse
+profile = service.product_users.get_by_external_id(
+	app_id="app_123",
+	external_user_id=authenticated_user_id,
+	upsert_if_missing=True,
+)
 ```
-GET `/provider-credentials`
 
----
+The `upsert_if_missing` argument also works on `get_credit_summary_by_external_id`, `get_allowance_debt_by_external_id`, `list_credit_grants_by_external_id`, and `list_activity_by_external_id`, including asynchronous methods. Pass a boolean. The SDK sends `X-Zorveus-Upsert-Product-User` automatically. With no option or header, reads remain lookup-only. Explicit `False` disables creation and overrides a conflicting raw header. Existing raw-header calls remain supported when this argument is omitted
 
-## 6. OAuth 2.0 PKCE helper (`ZorveusOAuth`)
+Creation is scoped to an owned, non-deleted app. Existing profiles and statuses are preserved. The caller still needs the normal product-user read scope. Explicit upsert and credit-grant writes retain their creation behavior
 
-Module: `zorveus._oauth`
+## Grant credits after a verified business event
 
-Helper class for implementing RFC 7636 OAuth 2.0 Authorization Code Flow with PKCE.
-
-### 6.1 PKCE generation (`generate_pkce`)
 ```python
-ZorveusOAuth.generate_pkce(byte_length: int = 32) -> PKCEData
-```
-Returns `PKCEData` object containing `code_verifier`, `code_challenge` (S256), and `state`.
+grant = service.product_users.grant_credit_by_external_id(
+    app_id="app_123", external_user_id="customer_42",
+    amount="10.00", currency="USD", source="purchase",
+    reason="Purchase purchase_123", metadata={"purchase_id": "purchase_123"},
+    external_reference="purchase:purchase_123",
+)
+print(grant.credit_grant.credit_grant_id)
+print(grant.product_user.get_total_available_to_spend())
 
-### 6.2 Authorization URL construction (`get_authorization_url`)
+page = service.product_users.list_credit_grants_by_external_id(
+    app_id="app_123", external_user_id="customer_42", limit=100,
+)
+print(page.credit_grants)
+```
+
+Omit `source` to use the backend's `service_key` default. Set `external_reference` to a stable purchase or award ID. Repeating that reference and the same grant parameters recovers the existing grant. Changed parameters return `ConflictError` with code `zorveus_product_user_credit_reference_conflict`
+
 ```python
-ZorveusOAuth.get_authorization_url(
-    client_id: str,
-    redirect_uri: str,
-    state: str,
-    code_challenge: str,
-    *,
-    scopes: Optional[List[str]] = None,
-    base_url: str = "https://api.zorveus.com"
-) -> str
+grant = service.product_users.get_credit_grant_by_external_reference(
+	app_id="app_123", external_user_id="customer_42",
+	external_reference="purchase:purchase_123",
+)
+print(grant.credit_grant_id, grant.remaining_amount, grant.status)
 ```
-Returns OAuth 2.0 authorization URL (`/oauth/authorize`).
 
-### 6.3 Callback validation (`validate_callback`)
+Lookup requires `product_users:read` or a scope that includes it. It returns the grant directly with its current balance and status. `AsyncZorveusServiceClient` exposes both methods with `await`. A lookup that returns 404 can race an unfinished creation. Repeat the original POST with the same reference and parameters to recover safely
+
+The reference remains occupied after expiry, exhaustion, or revocation and survives service-key rotation. Calls without a reference still create independent grants. Metadata alone does not deduplicate. The SDK does not automatically replay grant POSTs. Keep purchase verification and durable receipts in the application. Grant listing has a limit and no cursor. See [grant retry rules](https://docs.zorveus.com/platform/idempotency)
+
+Credits extend a configured cap. An uncapped connection has unlimited virtual allowance and does not consume customer credits. Carried debt can be repaid before credits become spendable. Read [billing integration](https://docs.zorveus.com/startups/billing-integration) before implementing purchase fulfillment
+
+Configure app connections, inference keys, and BYOK credentials in the [dashboard](https://app.zorveus.com). Use the inference key with this SDK after setup
+
+## Select a routing key alias per request
+
 ```python
-ZorveusOAuth.validate_callback(
-    url_or_query: str,
-    expected_state: Optional[str] = None
-) -> ValidationResult
-```
-Parses redirect URL or query string. Validates CSRF `state` parameter and extracts authorization `code`.
+from zorveus import Zorveus
 
-### 6.4 Access token exchange (`exchange_token`)
+client = Zorveus(api_key=os.environ["ZORVEUS_ROUTING_KEY"])
+response = client.chat.completions.create(
+    model=os.environ["ZORVEUS_MODEL_ID"],
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_headers={
+        "X-Zorveus-External-User-ID": authenticated_user_id,
+        "X-Zorveus-Key-Alias": "pro",
+        "X-Zorveus-Allowance-Change-Policy": "prorate_increase",
+    },
+)
+usage = client.get_usage(extra_headers={"X-Zorveus-Key-Alias": "pro"})
+client.close()
+```
+
+Choose the alias from trusted subscription state. Per-request `extra_headers` work for chat, embeddings, model discovery, and usage; `default_headers` on the client is suitable for headers shared by all requests. Do not place customer-specific headers on a client shared across customers
+
+`get_usage()` calls `/inference-keys/usage` outside `/v1`. Detailed finance-event APIs require a dashboard session, so a service key cannot authenticate them
+
+## List customer activity
+
 ```python
-ZorveusOAuth.exchange_token(
-    client_id: str,
-    code: str,
-    code_verifier: str,
-    redirect_uri: str,
-    *,
-    client_secret: Optional[str] = None,
-    base_url: str = "https://api.zorveus.com"
-) -> TokenResponse
-```
-POST `/oauth/token`. Returns `TokenResponse` containing `access_token`, `token_type`, `app_connection_id`, and `funding_org_id`.
-
-Example interactive script: [examples/oauth_pkce_flow.py](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/oauth_pkce_flow.py)
-
----
-
-## 7. Exception hierarchy
-
-Module: `zorveus.errors`
-
-```text
-ZorveusError (base exception)
-├── AuthenticationError        (HTTP 401)
-├── PermissionDeniedError      (HTTP 403)
-├── NotFoundError              (HTTP 404)
-├── UnprocessableEntityError  (HTTP 422)
-├── RateLimitError             (HTTP 429)
-└── InvalidDecimalError        (Credit string decimal validation failure)
+page = service.product_users.list_activity_by_external_id(
+	app_id="app_123",
+	external_user_id=authenticated_user_id,
+	limit=20,
+)
+for item in page.items:
+	print(item.label, item.amount, item.currency)
+	if item.type == "usage":
+		print(item.usage_metadata, item.credit_allocations)
 ```
 
-Attributes on `ZorveusError`:
-- `message: str`
-- `status_code: Optional[int]`
-- `raw_body: Optional[Dict[str, Any]]`
+The async service client uses the same method with `await`. Optional filters are `activity_type`, `from_date`, `to_date`, and `currency`. Pass `cursor=page.next_cursor` only when `page.has_more`, retaining the same app, user, and filters
 
----
+The response combines AI usage and recorded permanent credit movements. Usage amounts are negative product-user charges after markup. Usage items include `base_allowance_charge_amount`, `credit_charge_amount`, `uncovered_charge_amount`, and per-grant allocations with saved conversion metadata. Older events return `None` for unknown base and uncovered portions. Monetary fields remain decimal strings
 
-## 8. Pydantic v2 models reference
+This customer-scoped endpoint accepts a service key with `product_users:read`, returns 404 for missing users unless the upsert header is enabled, and does not expose organization wholesale costs. Read [Product-user activity](https://docs.zorveus.com/startups/product-user-activity) for raw HTTP examples, item types, pagination, date boundaries, and UI rules
 
-Module: `zorveus.types`
+## Attach business context to usage
 
-### Chat completion models
-- `ChatMessage`: `role`, `content`, `name`, `tool_calls`
-- `ChatCompletionUsage`: `prompt_tokens`, `completion_tokens`, `total_tokens`
-- `ChatCompletionChoice`: `index`, `message`, `finish_reason`
-- `ChatCompletionResponse`: `id`, `object`, `created`, `model`, `choices`, `usage`
-- `ChatCompletionChunkDelta`: `role`, `content`
-- `ChatCompletionChunkChoice`: `index`, `delta`, `finish_reason`
-- `ChatCompletionChunk`: `id`, `object`, `created`, `model`, `choices`
+Pass `usage_metadata` on native chat and embedding calls. The SDK sends it as `metadata.usage_metadata`, separate from product-user profile metadata
 
-### Model discovery models
-- `ModelObject`: `id`, `object`, `created`, `owned_by`
-- `ModelListResponse`: `object`, `data: List[ModelObject]`
+```python
+import json
+import os
+from zorveus import Zorveus
 
-### Product users & credit models
-- `ProductUserResponse` (alias `ProductUser`): `product_end_user_id`, `id`, `app_id`, `external_user_id`, `display_name`, `email`, `email_hash`, `status`, `metadata`, `allowance_starts_at`, `last_app_connection_id`, `usage`, `cap`, `direct_cap`, `credits`, `allowance`, `created_at`, `updated_at`.
-  - Getters: `get_available_allowance()`, `get_total_available_to_spend()`, `get_available_credits()`, `get_total_credits()`, `get_total_allowance()`, `get_cap_spent()`, `get_remaining_base_allowance()`, `get_usage_cost(period="this_period")`, `has_available_allowance()`, `get_available_allowance_decimal()`, `get_total_available_to_spend_decimal()`, `get_total_credits_decimal()`, `get_total_allowance_decimal()`, `get_cap_spent_decimal()`.
-  - Properties: `total_available_allowance`, `total_available_to_spend`, `total_credits`, `cap_spent`.
-- `ProductUserAllowanceResponse` (alias `ProductUserAllowance`): `app_connection_id`, `cap_source`, `cap_rule_id`, `credit_mode`, `overrun_policy`, `currency`, `period`, `period_start`, `period_end`, `cap_amount`, `spent_this_period`, `remaining_base_allowance`, `available_credits`, `available_allowance`.
-- `ProductUserCapResponse` (alias `ProductUserCap`): `source`, `cap_rule_id`, `amount`, `currency`, `period`, `spent_this_period`, `period_start`, `period_end`, `reset_at`, `status`, `updated_at`.
-- `ProductUserUsageSummary`: `this_period`, `period_start`, `period_end`, `total` (each bucket with `sell_cost`, `input_tokens`, `output_tokens`, `total_tokens`, `request_count`).
-- `CreditSummary`: `available_credits`, `active_grant_count`, `expiring_soon_amount`, `spent_this_month`, `spent_total`, `currency`.
-- `CreditGrant`: `id`, `product_user_id`, `amount`, `remaining_amount`, `currency`, `source`, `reason`, `created_at`.
-- `GrantCreditResponse`: `credit_grant`, `credit_summary`, `product_user`.
+client = Zorveus()
+try:
+	response = client.embeddings.create(
+		model=os.environ["ZORVEUS_EMBEDDING_MODEL_ID"],
+		input="Text to embed",
+		user=authenticated_user_id,
+		usage_metadata={
+			"activity_id": "index_123",
+			"activity_label": "Indexed document",
+			"document_id": "doc_123",
+		},
+		extra_headers={
+			"X-Zorveus-Usage-Metadata": json.dumps({"channel": "documents"}),
+		},
+	)
+finally:
+	client.close()
+```
 
-### Provider credentials models
-- `ProviderCredential`: `id`, `app_id`, `provider`, `created_at`, `updated_at`
-- `ProviderCredentialResponse`: `provider_credential`
-- `ProviderCredentialListResponse`: `data: List[ProviderCredential]`
+Get `authenticated_user_id` from trusted application state. Async clients accept the same arguments with `await`. Streaming chat calls also accept `usage_metadata`. An explicit argument replaces any `usage_metadata` value supplied through raw `metadata` or `zorveus_metadata`, including when the explicit argument is `{}`
 
-### Usage tracking model
-- `UsageResponse`: `key_id`, `spend_cap`, `period_spend`, `remaining_allowance`, `currency`
+### OpenAI and framework adapters
 
----
+The Zorveus OpenAI adapter accepts `usage_metadata` per request:
 
-## 9. Runnable examples
+```python
+from zorveus.openai import ZorveusOpenAI
 
-The `examples/` directory contains runnable reference scripts:
+with ZorveusOpenAI() as client:
+	response = client.responses.create(
+		model=os.environ["ZORVEUS_MODEL_ID"],
+		input="Reply to the customer",
+		external_user_id=authenticated_user_id,
+		usage_metadata={"activity_id": "reply_123", "activity_label": "Agent replied"},
+	)
+```
 
-- [examples/basic_inference.py](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/basic_inference.py): Synchronous and streaming chat completions.
-- [examples/user_management.py](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/user_management.py): User provisioning and 12-decimal credit grants.
-- [examples/oauth_pkce_flow.py](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/oauth_pkce_flow.py): Interactive CLI PKCE flow.
-- [examples/openai_adapter_demo.py](file:///Users/peterakande/DevProjects/SDKs/zorveus-python/examples/openai_adapter_demo.py): OpenAI adapter integration (`ZorveusOpenAI`).
+`AsyncZorveusOpenAI` uses the same per-request option. With the official OpenAI Python client, send the object through `extra_body={"metadata": {"usage_metadata": activity}}` or use `extra_headers`. Do not pass `usage_metadata` directly to the official client
+
+```python
+from zorveus.adapters.langchain import ChatZorveus
+from zorveus.adapters.llamaindex import ZorveusLLM
+
+activity = {"activity_id": "reply_123", "activity_label": "Agent replied"}
+chat = ChatZorveus(
+	model=os.environ["ZORVEUS_MODEL_ID"],
+	external_user_id=authenticated_user_id,
+	usage_metadata=activity,
+)
+llm = ZorveusLLM(
+	model=os.environ["ZORVEUS_MODEL_ID"],
+	external_user_id=authenticated_user_id,
+	usage_metadata=activity,
+)
+```
+
+Install `zorveus[langchain]` or `zorveus[llamaindex]` for the relevant adapter. These framework options attach metadata to requests from that instance. Use a separate instance when the activity changes
+
+### Merge rules and saved events
+
+The gateway shallow-merges the JSON object in `X-Zorveus-Usage-Metadata` with the body object. Body keys win. Nested objects are replaced rather than recursively merged. Each input and the merged object must fit within 4,096 UTF-8 bytes using compact JSON encoding, and the raw header also has a 4,096-byte limit. Invalid JSON, arrays or scalar values, non-finite numbers, and oversized metadata fail before a billing reservation is created
+
+The backend saves the captured context on usage events and removes it before forwarding the provider request. `UsageEvent.usage_metadata` is a typed JSON object or `None`. Older events have `None`; an empty object remains `{}`. Existing dashboard permissions still apply, and diagnostic views without usage-detail permission redact the field
+
+`activity_id` and `activity_label` are optional application-defined fields. They do not group events, deduplicate calls, or change the amount charged. Use `service.product_users.list_activity_by_external_id()` for customer activity history. Read the [raw HTTP contract](https://docs.zorveus.com/inference/product-user-metadata#attach-business-context-to-usage-events) for equivalent requests
+
+## Connect and disconnect with OAuth
+
+```python
+from zorveus import ZorveusOAuth
+
+pkce = ZorveusOAuth.generate_pkce()
+authorization_url = ZorveusOAuth.get_authorization_url(
+    client_id="YOUR_CLIENT_ID", redirect_uri="https://example.com/callback",
+    state=pkce.state, code_challenge=pkce.code_challenge,
+    scopes=["inference:write", "models:*"],
+)
+```
+
+Save `pkce.state` and `pkce.code_verifier` in the initiating session before redirecting. Retrieve those saved values at the callback and validate state before accepting either a code or an OAuth error
+
+```python
+validation = ZorveusOAuth.validate_callback(callback_url, expected_state=saved_state)
+if not validation.valid or not validation.code:
+    raise ValueError(validation.error_description or "OAuth callback failed")
+
+token = ZorveusOAuth.exchange_token(
+    client_id="YOUR_CLIENT_ID", code=validation.code,
+    code_verifier=saved_verifier, redirect_uri="https://example.com/callback",
+)
+
+result = ZorveusOAuth.revoke_token(client_id="YOUR_CLIENT_ID", token=token.access_token)
+print(result.revoked)
+```
+
+The token exchange and revocation helpers are synchronous. Run them outside an async handler's event loop. Public clients omit `client_secret`; confidential backends include it. Clear the local session after a confirmed revocation response, including `revoked=False`. A network error leaves remote access uncertain. The token response has no refresh-token flow
+
+## Handle API errors
+
+Catch `ZorveusError` or its specific subclasses from `zorveus.errors`. `AuthenticationError`, `PermissionDeniedError`, `NotFoundError`, `UnprocessableEntityError`, and `RateLimitError` expose the HTTP failure category. `InvalidDecimalError` reports malformed monetary arguments before a request
+
+Inspect `status_code` and `raw_body` when troubleshooting. Never log service keys, inference tokens, provider secrets, or unnecessary customer details
+
+## Selected-key allowance reads and credit units
+
+The service client can read a customer's allowance using the direct inference key or routing key selected by your application. Keep both credentials on your backend. The service key authorizes the read, while the inference key selects the policy through a header
+
+```python
+user = service.product_users.get_by_external_id(
+	app_id=app_id,
+	external_user_id=authenticated_user_id,
+	inference_key=selected_inference_or_routing_key,
+	key_alias=selected_routing_alias,
+	upsert_if_missing=True,
+)
+print(user.allowance.remaining_credit_units if user.allowance else None)
+
+receipt = service.product_users.grant_credit_by_external_id(
+	app_id=app_id,
+	external_user_id=authenticated_user_id,
+	external_reference=f"purchase:{verified_payment.id}",
+	amount="2.000000000000",
+	credit_units_per_usd="1500",
+	source="purchase",
+)
+```
+
+Omit the alias for a direct key. Routing keys accept a member alias or their configured default. The upsert option enables the first read before any AI request. Changing the selected key reflects a new plan immediately without assigning a subscription inside Zorveus
+
+`allowance.remaining_credit_units` includes base allowance at the current app rate plus applicable grants at their own rates. `credits.remaining_credit_units` and `credit_summary.remaining_credit_units` count grants only. Existing amount getters and USD fields retain their currency meaning
+
+The $2 grant above starts with 3,000 units. Omit its rate to save the app default. A saved grant rate does not change when the app default changes. Older grants without a saved rate use the current app default. Include the same explicit rate when retrying a grant reference
+
+Activity returns `charged_credit_units`, saved from the actual allocations at settlement. Later app-rate changes do not recalculate it. Rates and quantities are decimal strings. Quantities can have more than 12 decimal places, and null means unavailable rather than zero
+
+The asynchronous service client supports the same arguments and response fields with `await`

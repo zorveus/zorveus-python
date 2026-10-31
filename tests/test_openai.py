@@ -1,3 +1,7 @@
+import json
+
+import httpx
+import respx
 import pytest
 from unittest.mock import patch, MagicMock
 from zorveus.openai import ZorveusOpenAI, AsyncZorveusOpenAI, HAS_OPENAI
@@ -201,3 +205,53 @@ def test_zorveus_openai_video_create_and_poll_waits_while_processing():
     assert result is completed
     sleep.assert_called_once_with(0.25)
     poll.assert_called_once_with("video_123", poll_interval_ms=250)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.parametrize("resource", ["chat", "responses", "embeddings"])
+@pytest.mark.parametrize("usage_metadata", [{}, {"activity_id": "reply_123", "details": {"parts": [1, True, None]}}])
+@respx.mock
+async def test_openai_adapter_consumes_named_usage_metadata_before_calling_the_official_sdk(
+    is_async, resource, usage_metadata
+):
+    path = "chat/completions" if resource == "chat" else resource
+    route = respx.post("https://api.zorveus.com/v1/" + path).mock(return_value=httpx.Response(200, json={
+        "id": "result_123", "object": "response", "model": "test-model", "created": 0,
+        "choices": [], "output": [],
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2]}],
+        "usage": {"prompt_tokens": 1, "total_tokens": 1},
+    }))
+    client = AsyncZorveusOpenAI(api_key="test_key") if is_async else ZorveusOpenAI(api_key="test_key")
+    params = {
+        "model": "test-model", "usage_metadata": usage_metadata,
+        "extra_body": {"metadata": {"product_user": {"metadata": {"plan": "pro"}},
+                                    "usage_metadata": {"activity_id": "old"}}},
+        "extra_headers": {"X-Zorveus-Usage-Metadata": json.dumps({"channel": "whatsapp"})},
+    }
+    if resource == "chat":
+        method = client.chat.completions.create
+        params["messages"] = [{"role": "user", "content": "Hello"}]
+    elif resource == "responses":
+        method = client.responses.create
+        params["input"] = "Hello"
+    else:
+        method = client.embeddings.create
+        params["input"] = ["Hello"]
+    try:
+        if is_async:
+            await method(**params)
+        else:
+            method(**params)
+    finally:
+        if is_async:
+            await client.close()
+        else:
+            client.close()
+    request = route.calls[0].request
+    payload = json.loads(request.content)
+    assert payload["metadata"] == {
+        "product_user": {"metadata": {"plan": "pro"}}, "usage_metadata": usage_metadata,
+    }
+    assert "usage_metadata" not in payload
+    assert json.loads(request.headers["X-Zorveus-Usage-Metadata"]) == {"channel": "whatsapp"}

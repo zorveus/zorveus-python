@@ -1,3 +1,12 @@
+from zorveus.types.product_user_activity import (
+    ProductUserActivityType,
+    ProductUserActivityItem,
+    ProductUserActivityResponse,
+    ProductUserUsageActivity,
+    ProductUserCreditActivity,
+    ProductUserCreditAllocation,
+)
+from zorveus.types.usage_metadata import UsageMetadata
 from zorveus.types.usage import UsageResponse, UsageEvent, UsageEventListResponse, normal_input_tokens
 from zorveus.types.embeddings import EmbeddingData, EmbeddingUsage, EmbeddingCreateResponse
 from zorveus.types.chat import (
@@ -20,20 +29,21 @@ from zorveus.types.product_users import (
     ProductUserCapResponse,
     ProductUserCap,
     ProductUserAllowanceAdjustment,
+    ProductUserAllowanceDebtSummaryResponse,
     ProductUserAllowanceResponse,
     ProductUserAllowance,
     ProductUserUsageBucket,
     ProductUserUsageSummary,
 )
-from zorveus.types.provider_credentials import (
-    ProviderCredential,
-    ProviderCredentialResponse,
-    ProviderCredentialListResponse,
-    ProviderInfo,
-    ProviderCatalogResponse,
-)
 
 __all__ = [
+    "ProductUserActivityType",
+    "ProductUserActivityItem",
+    "ProductUserActivityResponse",
+    "ProductUserUsageActivity",
+    "ProductUserCreditActivity",
+    "ProductUserCreditAllocation",
+    "UsageMetadata",
     "UsageResponse",
     "UsageEvent",
     "UsageEventListResponse",
@@ -59,13 +69,9 @@ __all__ = [
     "ProductUserCapResponse",
     "ProductUserCap",
     "ProductUserAllowanceAdjustment",
+    "ProductUserAllowanceDebtSummaryResponse",
     "ProductUserAllowanceResponse",
     "ProductUserAllowance",
     "ProductUserUsageBucket",
     "ProductUserUsageSummary",
-    "ProviderCredential",
-    "ProviderCredentialResponse",
-    "ProviderCredentialListResponse",
-    "ProviderInfo",
-    "ProviderCatalogResponse",
 ]

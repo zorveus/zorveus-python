@@ -1,6 +1,8 @@
 import os
 from typing import Optional, Dict, Any
 
+from zorveus.types.usage_metadata import UsageMetadata
+
 try:
     from llama_index.llms.openai import OpenAI as LlamaIndexOpenAI
 
@@ -23,6 +25,7 @@ class ZorveusLLM(LlamaIndexOpenAI):
         display_name: Optional[str] = None,
         email: Optional[str] = None,
         user_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
         model: str = "openai/gpt-4.1-mini",
         additional_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -45,7 +48,10 @@ class ZorveusLLM(LlamaIndexOpenAI):
 
         a_kwargs = dict(additional_kwargs or {})
         extra_body = dict(a_kwargs.get("extra_body") or {})
-        metadata = dict(extra_body.get("metadata") or {})
+        metadata = {
+            **dict(extra_body.get("metadata") or {}),
+            **({"usage_metadata": dict(usage_metadata)} if usage_metadata is not None else {}),
+        }
 
         if external_user_id and "external_user_id" not in metadata:
             metadata["external_user_id"] = external_user_id

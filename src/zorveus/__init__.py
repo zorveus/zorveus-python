@@ -2,7 +2,7 @@ from typing import Any, TYPE_CHECKING
 from zorveus._version import __version__
 from zorveus._client import Zorveus, AsyncZorveus
 from zorveus._service_client import ZorveusServiceClient, AsyncZorveusServiceClient
-from zorveus._oauth import ZorveusOAuth, PKCEData, TokenResponse, ValidationResult
+from zorveus._oauth import ZorveusOAuth, PKCEData, TokenResponse, ValidationResult, RevokeResponse
 from zorveus.errors import (
     ZorveusError,
     AuthenticationError,
@@ -40,6 +40,7 @@ __all__ = [
     "ZorveusOAuth",
     "PKCEData",
     "TokenResponse",
+    "RevokeResponse",
     "ValidationResult",
     "ZorveusError",
     "AuthenticationError",

@@ -1,7 +1,6 @@
 from zorveus.resources.chat import ChatResource, AsyncChatResource
 from zorveus.resources.models import ModelsResource, AsyncModelsResource
 from zorveus.resources.product_users import ProductUsersResource, AsyncProductUsersResource
-from zorveus.resources.provider_credentials import ProviderCredentialsResource, AsyncProviderCredentialsResource
 
 __all__ = [
     "ChatResource",
@@ -10,6 +9,4 @@ __all__ = [
     "AsyncModelsResource",
     "ProductUsersResource",
     "AsyncProductUsersResource",
-    "ProviderCredentialsResource",
-    "AsyncProviderCredentialsResource",
 ]

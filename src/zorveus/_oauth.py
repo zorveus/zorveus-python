@@ -1,8 +1,5 @@
-import secrets
-import hashlib
-import base64
 from urllib.parse import urlencode, parse_qs, urlparse
-from typing import Optional, List
+from typing import Final, Optional, List
 import httpx
 from pydantic import BaseModel
 from zorveus.utils.pkce import generate_code_verifier, generate_code_challenge, generate_state
@@ -21,6 +18,10 @@ class TokenResponse(BaseModel):
     expires_in: Optional[int] = None
     scope: Optional[str] = None
     api_base: Optional[str] = None
+
+
+class RevokeResponse(BaseModel):
+    revoked: bool
 
 
 class ValidationResult(BaseModel):
@@ -71,6 +72,14 @@ class ZorveusOAuth:
         parsed = urlparse(url_or_query)
         params = parse_qs(parsed.query or url_or_query)
 
+        state = params.get("state", [None])[0]
+        if expected_state is not None and (not expected_state or state != expected_state):
+            return ValidationResult(
+                valid=False,
+                error="state_mismatch",
+                error_description="State parameter does not match expected CSRF token",
+            )
+
         raw_error = params.get("error", [None])[0]
         if raw_error:
             desc = params.get("error_description", [None])[0]
@@ -84,13 +93,6 @@ class ZorveusOAuth:
                 error_description="Missing authorization code",
             )
 
-        state = params.get("state", [None])[0]
-        if expected_state and state != expected_state:
-            return ValidationResult(
-                valid=False,
-                error="state_mismatch",
-                error_description="State parameter does not match expected CSRF token",
-            )
 
         return ValidationResult(valid=True, code=code, state=state)
 
@@ -119,3 +121,21 @@ class ZorveusOAuth:
             resp = client.post(f"{base_url.rstrip('/')}/oauth/token", data=payload)
             raise_for_status(resp)
             return TokenResponse.model_validate(resp.json())
+
+    @staticmethod
+    def revoke_token(
+        client_id: str,
+        token: str,
+        *,
+        client_secret: Optional[str] = None,
+        base_url: str = "https://api.zorveus.com",
+    ) -> RevokeResponse:
+        payload: Final = {
+            "client_id": client_id,
+            "token": token,
+            **({"client_secret": client_secret} if client_secret is not None else {}),
+        }
+        with httpx.Client() as client:
+            response: Final = client.post(f"{base_url.rstrip('/')}/oauth/revoke", data=payload)
+            raise_for_status(response)
+            return RevokeResponse.model_validate(response.json())

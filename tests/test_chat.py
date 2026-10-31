@@ -1,3 +1,4 @@
+import json
 import pytest
 import respx
 import httpx
@@ -182,3 +183,84 @@ def test_chat_attribution_and_tracking_headers():
     assert sent_payload["user"] == "usr_cust_123"
     assert sent_payload["metadata"]["external_user_id"] == "usr_cust_123"
     assert sent_payload["metadata"]["product_end_user_id"] == "peu_999"
+
+
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.asyncio
+@respx.mock
+async def test_native_client_uses_request_headers_without_cross_user_leakage(is_async):
+    import json
+
+    response = {"id": "completion_test", "created": 0, "model": "zorveus/test-model", "choices": []}
+    route = respx.post("https://api.zorveus.com/v1/chat/completions").respond(200, json=response)
+    cls = AsyncZorveus if is_async else Zorveus
+    client = cls(api_key="zrv_route_test", default_headers={"X-Zorveus-Key-Alias": "free"})
+    try:
+        for user_id in ("customer_1", "customer_2"):
+            pending = client.chat.completions.create(
+                model=response["model"],
+                messages=[{"role": "user", "content": "Hello"}],
+                extra_headers={"X-Zorveus-External-User-ID": user_id, "X-Zorveus-Key-Alias": "pro"},
+            )
+            if is_async:
+                await pending
+        assert [call.request.headers["X-Zorveus-External-User-ID"] for call in route.calls] == [
+            "customer_1",
+            "customer_2",
+        ]
+        assert all(call.request.headers["X-Zorveus-Key-Alias"] == "pro" for call in route.calls)
+        assert all("extra_headers" not in json.loads(call.request.content) for call in route.calls)
+    finally:
+        if is_async:
+            await client.close()
+        else:
+            client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.parametrize("is_stream", [False, True])
+@respx.mock
+async def test_usage_metadata_and_header_preserve_attribution_for_sync_async_and_streaming(is_async, is_stream):
+    completion = {
+        "id": "completion_123", "object": "chat.completion", "created": 0, "model": "test-model",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "Reply"}, "finish_reason": "stop"}],
+    }
+    chunk = {
+        "id": "completion_123", "object": "chat.completion.chunk", "created": 0, "model": "test-model",
+        "choices": [{"index": 0, "delta": {"content": "Reply"}, "finish_reason": "stop"}],
+    }
+    response = (
+        httpx.Response(200, text="data: " + json.dumps(chunk) + "\n\ndata: [DONE]\n\n",
+                       headers={"content-type": "text/event-stream"})
+        if is_stream else httpx.Response(200, json=completion)
+    )
+    route = respx.post("https://api.zorveus.com/v1/chat/completions").mock(return_value=response)
+    client = AsyncZorveus(api_key="test_key") if is_async else Zorveus(api_key="test_key")
+    params = {
+        "model": "test-model", "messages": [{"role": "user", "content": "Hello"}], "stream": is_stream,
+        "user": "user_123", "usage_metadata": {"activity_id": "reply_123"},
+        "zorveus_metadata": {"product_user": {"metadata": {"plan": "pro"}}},
+        "extra_headers": {"X-Zorveus-Usage-Metadata": json.dumps({"channel": "whatsapp"})},
+    }
+    try:
+        result = await client.chat.completions.create(**params) if is_async else client.chat.completions.create(**params)
+        if is_stream:
+            chunks = [item async for item in result] if is_async else list(result)
+            assert "".join(item.choices[0].delta.content or "" for item in chunks) == "Reply"
+        else:
+            assert result.choices[0].message.content == "Reply"
+    finally:
+        if is_async:
+            await client.close()
+        else:
+            client.close()
+    request = route.calls[0].request
+    assert json.loads(request.content) == {
+        "model": "test-model", "messages": [{"role": "user", "content": "Hello"}], "stream": is_stream,
+        "user": "user_123", "metadata": {
+            "external_user_id": "user_123", "product_user": {"metadata": {"plan": "pro"}},
+            "usage_metadata": {"activity_id": "reply_123"},
+        },
+    }
+    assert json.loads(request.headers["X-Zorveus-Usage-Metadata"]) == {"channel": "whatsapp"}

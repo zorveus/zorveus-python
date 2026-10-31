@@ -1,7 +1,6 @@
 import os
 from typing import Optional
 from zorveus.resources.product_users import ProductUsersResource, AsyncProductUsersResource
-from zorveus.resources.provider_credentials import ProviderCredentialsResource, AsyncProviderCredentialsResource
 from zorveus.http.transport import SyncHTTPTransport
 from zorveus.http.async_transport import AsyncHTTPTransport
 
@@ -24,7 +23,6 @@ class ZorveusServiceClient:
         self._transport = SyncHTTPTransport(api_key=key, base_url=url, timeout=timeout)
 
         self.product_users = ProductUsersResource(self._transport)
-        self.provider_credentials = ProviderCredentialsResource(self._transport)
 
     def close(self) -> None:
         self._transport.close()
@@ -49,7 +47,6 @@ class AsyncZorveusServiceClient:
         self._transport = AsyncHTTPTransport(api_key=key, base_url=url, timeout=timeout)
 
         self.product_users = AsyncProductUsersResource(self._transport)
-        self.provider_credentials = AsyncProviderCredentialsResource(self._transport)
 
     async def close(self) -> None:
         await self._transport.close()

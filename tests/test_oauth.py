@@ -70,3 +70,24 @@ def test_token_exchange():
     assert token.access_token == "token_live_123"
     assert token.token_type == "Bearer"
     assert token.app_connection_id == "conn_123"
+
+
+@pytest.mark.parametrize("query", ["code=code_test", "error=access_denied"])
+def test_callback_checks_state_before_success_or_denial(query):
+    result = ZorveusOAuth.validate_callback(
+        f"https://example.com/callback?{query}&state=wrong", expected_state="expected"
+    )
+    assert not result.valid
+    assert result.error == "state_mismatch"
+
+
+@pytest.mark.parametrize("revoked", [True, False])
+@respx.mock
+def test_oauth_revocation_returns_confirmed_result(revoked):
+    from urllib.parse import parse_qs
+
+    route = respx.post("https://api.zorveus.com/oauth/revoke").respond(200, json={"revoked": revoked})
+    result = ZorveusOAuth.revoke_token(client_id="client_test", token="zrv_test")
+    payload = parse_qs(route.calls.last.request.content.decode())
+    assert result.revoked is revoked
+    assert payload == {"client_id": ["client_test"], "token": ["zrv_test"]}

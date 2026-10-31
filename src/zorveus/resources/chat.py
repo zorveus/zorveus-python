@@ -1,6 +1,8 @@
-from typing import Optional, List, Dict, Any, Union, Iterator, AsyncIterator, overload, Literal
+from typing import Optional, List, Mapping, Dict, Any, Union, Iterator, AsyncIterator, overload, Literal
 from zorveus.http.transport import SyncHTTPTransport
 from zorveus.http.async_transport import AsyncHTTPTransport
+
+from zorveus.types.usage_metadata import UsageMetadata
 from zorveus.types.chat import (
     ChatMessage,
     ChatCompletionResponse,
@@ -26,6 +28,8 @@ class CompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> Iterator[ChatCompletionChunk]: ...
 
@@ -42,6 +46,8 @@ class CompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> ChatCompletionResponse: ...
 
@@ -57,6 +63,8 @@ class CompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> Union[ChatCompletionResponse, Iterator[ChatCompletionChunk]]:
         """Creates a chat completion or stream."""
@@ -84,13 +92,14 @@ class CompletionsResource:
         metadata = dict(payload.get("metadata") or {})
         if zorveus_metadata:
             metadata.update(zorveus_metadata)
+        if usage_metadata is not None:
+            metadata["usage_metadata"] = dict(usage_metadata)
         if product_end_user_id and "product_end_user_id" not in metadata:
             metadata["product_end_user_id"] = product_end_user_id
         if user and "external_user_id" not in metadata:
             metadata["external_user_id"] = user
         if metadata:
             payload["metadata"] = metadata
-            payload["zorveus_metadata"] = metadata
 
         if stream:
             return self._transport.stream(
@@ -98,12 +107,14 @@ class CompletionsResource:
                 "/chat/completions",
                 json_data=payload,
                 response_model=ChatCompletionChunk,
+                headers=extra_headers,
             )
 
         return self._transport.post(
             "/chat/completions",
             json_data=payload,
             response_model=ChatCompletionResponse,
+            headers=extra_headers,
         )
 
 
@@ -126,6 +137,8 @@ class AsyncCompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> AsyncIterator[ChatCompletionChunk]: ...
 
@@ -142,6 +155,8 @@ class AsyncCompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> ChatCompletionResponse: ...
 
@@ -157,6 +172,8 @@ class AsyncCompletionsResource:
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
         zorveus_metadata: Optional[Dict[str, Any]] = None,
+        usage_metadata: Optional[UsageMetadata] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         **extra_kwargs: Any,
     ) -> Union[ChatCompletionResponse, AsyncIterator[ChatCompletionChunk]]:
         """Creates a chat completion or stream asynchronously."""
@@ -184,13 +201,14 @@ class AsyncCompletionsResource:
         metadata = dict(payload.get("metadata") or {})
         if zorveus_metadata:
             metadata.update(zorveus_metadata)
+        if usage_metadata is not None:
+            metadata["usage_metadata"] = dict(usage_metadata)
         if product_end_user_id and "product_end_user_id" not in metadata:
             metadata["product_end_user_id"] = product_end_user_id
         if user and "external_user_id" not in metadata:
             metadata["external_user_id"] = user
         if metadata:
             payload["metadata"] = metadata
-            payload["zorveus_metadata"] = metadata
 
         if stream:
             return await self._transport.stream(
@@ -198,12 +216,14 @@ class AsyncCompletionsResource:
                 "/chat/completions",
                 json_data=payload,
                 response_model=ChatCompletionChunk,
+                headers=extra_headers,
             )
 
         return await self._transport.post(
             "/chat/completions",
             json_data=payload,
             response_model=ChatCompletionResponse,
+            headers=extra_headers,
         )
 
 
