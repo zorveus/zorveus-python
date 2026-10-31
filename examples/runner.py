@@ -29,6 +29,7 @@ from zorveus import (
     ZorveusServiceClient,
     parse_zorveus_gateway_error,
 )
+from zorveus.types import ProductUserResponse
 from zorveus.adapters.langchain import ChatZorveus
 from zorveus.adapters.llamaindex import ZorveusLLM
 
@@ -144,7 +145,8 @@ def embedding() -> None:
             client.embeddings.create(
                 model=ask(
                     "Embedding model",
-                    os.getenv("ZORVEUS_EMBEDDING_MODEL", "text-embedding-3-small"),
+                    # os.getenv("ZORVEUS_EMBEDDING_MODEL", "gemini/gemini-embedding-001"),
+                    os.getenv("ZORVEUS_EMBEDDING_MODEL", "voyage/voyage-4"),
                 ),
                 input=ask("Text to embed", "Zorveus SDK test"),
                 user=external_user_id(),
@@ -167,15 +169,37 @@ def upsert_product_user() -> None:
     )
 
 
+def dump_product_user_getters(user: ProductUserResponse) -> None:
+    print("\n--- Financial Getters ---")
+    data = {
+        "get_available_allowance()": user.get_available_allowance(),
+        "get_total_available_to_spend()": user.get_total_available_to_spend(),
+        "get_available_credits()": user.get_available_credits(),
+        "get_total_credits()": user.get_total_credits(),
+        "get_total_allowance()": user.get_total_allowance(),
+        "get_cap_spent()": user.get_cap_spent(),
+        "get_remaining_base_allowance()": user.get_remaining_base_allowance(),
+        "has_available_allowance()": user.has_available_allowance(),
+        "get_usage_cost('this_period')": user.get_usage_cost("this_period"),
+        "get_usage_cost('total')": user.get_usage_cost("total"),
+        "get_available_allowance_decimal()": user.get_available_allowance_decimal(),
+        "get_total_available_to_spend_decimal()": user.get_total_available_to_spend_decimal(),
+        "get_total_credits_decimal()": user.get_total_credits_decimal(),
+        "get_total_allowance_decimal()": user.get_total_allowance_decimal(),
+        "get_cap_spent_decimal()": user.get_cap_spent_decimal(),
+    }
+    pprint(data, sort_dicts=False)
+
+
 def get_product_user() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.product_users.get_by_external_id(
-                app_id=app_id(), external_user_id=external_user_id()
-            )
-        ),
-    )
+    def run(client: ZorveusServiceClient) -> None:
+        user = client.product_users.get_by_external_id(
+            app_id=app_id(), external_user_id=external_user_id()
+        )
+        dump(user)
+        dump_product_user_getters(user)
+
+    with_client(service_client(), run)
 
 
 def get_credit_summary() -> None:
@@ -221,23 +245,6 @@ def grant_credit() -> None:
     )
 
 
-def list_provider_credentials() -> None:
-    def run(client: ZorveusServiceClient) -> None:
-        selected_app_id = ask(
-            "App ID filter, blank for all", os.getenv("ZORVEUS_APP_ID")
-        )
-        dump(client.provider_credentials.list(app_id=selected_app_id or None))
-
-    with_client(service_client(), run)
-
-
-def list_providers() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(client.provider_credentials.list_providers()),
-    )
-
-
 def parse_gateway_error() -> None:
     dump(
         parse_zorveus_gateway_error(
@@ -254,83 +261,6 @@ def parse_gateway_error() -> None:
             },
             status_code=403,
         )
-    )
-
-
-def create_provider_credential() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.create(
-                provider=required("Provider", "ZORVEUS_TEST_PROVIDER"),
-                api_key=required(
-                    "Disposable provider API key", "ZORVEUS_TEST_PROVIDER_API_KEY"
-                ),
-                credential_name=ask("Credential name", "SDK runner credential"),
-                routing_priority=int(ask("Routing priority", "100")),
-            )
-        ),
-    )
-
-
-def rotate_provider_credential() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.rotate(
-                provider_credential_id=required(
-                    "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
-                ),
-                api_key=required(
-                    "New disposable provider API key",
-                    "ZORVEUS_TEST_PROVIDER_ROTATED_API_KEY",
-                ),
-            )
-        ),
-    )
-
-
-def update_provider_routing_priority() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.update_routing_priority(
-                provider_credential_id=required(
-                    "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
-                ),
-                routing_priority=int(ask("Routing priority", "100")),
-            )
-        ),
-    )
-
-
-def grant_provider_to_app_connection() -> None:
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.grant_to_app_connection(
-                provider_credential_id=required(
-                    "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
-                ),
-                app_connection_id=required(
-                    "App connection ID", "ZORVEUS_TEST_APP_CONNECTION_ID"
-                ),
-            )
-        ),
-    )
-
-
-def delete_provider_credential() -> None:
-    credential_id = required(
-        "Provider credential ID", "ZORVEUS_TEST_PROVIDER_CREDENTIAL_ID"
-    )
-    if ask(f"Type {credential_id} to confirm deletion") != credential_id:
-        raise RuntimeError("Deletion cancelled")
-    with_client(
-        service_client(),
-        lambda client: dump(
-            client.provider_credentials.delete(provider_credential_id=credential_id)
-        ),
     )
 
 
@@ -448,7 +378,7 @@ def openai_transcribe_audio() -> None:
             response = client.audio.transcriptions.create(
                 model=ask(
                     "Transcription model",
-                    os.getenv("ZORVEUS_TRANSCRIPTION_MODEL", "whisper-1"),
+                    os.getenv("ZORVEUS_TRANSCRIPTION_MODEL", "openai/whisper-1"),
                 ),
                 file=audio_file,
             )
@@ -469,7 +399,7 @@ def openai_translate_audio() -> None:
             response = client.audio.translations.create(
                 model=ask(
                     "Translation model",
-                    os.getenv("ZORVEUS_TRANSLATION_MODEL", "whisper-1"),
+                    os.getenv("ZORVEUS_TRANSLATION_MODEL", "openai/whisper-1"),
                 ),
                 file=audio_file,
             )
@@ -486,7 +416,7 @@ def openai_generate_image() -> None:
     )
     try:
         response = client.images.generate(
-            model=ask("Image model", os.getenv("ZORVEUS_IMAGE_MODEL", "dall-e-3")),
+            model=ask("Image model", os.getenv("ZORVEUS_IMAGE_MODEL", "gemini/gemini-2.5-flash-image")),
             prompt=ask(
                 "Image prompt", "A simple geometric illustration of an AI gateway"
             ),
@@ -516,7 +446,7 @@ def openai_generate_video() -> None:
     )
     try:
         video = client.videos.create_and_poll(
-            model=ask("Video model", os.getenv("ZORVEUS_VIDEO_MODEL", "sora-2")),
+            model=ask("Video model", os.getenv("ZORVEUS_VIDEO_MODEL", "gemini/veo-3.1-lite-generate-preview")),
             prompt=ask(
                 "Video prompt", "A paper airplane gliding over a geometric city"
             ),
@@ -635,18 +565,7 @@ ACTIONS = [
     Action("Get a product user's credit summary", get_credit_summary),
     Action("List a product user's credit grants", list_credit_grants),
     Action("Grant credit to a product user", grant_credit, True),
-    Action("List provider credentials", list_provider_credentials),
-    Action("List supported providers", list_providers),
     Action("Parse a gateway error", parse_gateway_error),
-    Action("Create a provider credential", create_provider_credential, True),
-    Action("Rotate a provider credential", rotate_provider_credential, True),
-    Action("Update provider routing priority", update_provider_routing_priority, True),
-    Action(
-        "Grant a provider credential to an app connection",
-        grant_provider_to_app_connection,
-        True,
-    ),
-    Action("Delete a provider credential", delete_provider_credential, True),
     Action("Generate OAuth PKCE data and authorization URL", oauth_pkce_and_url),
     Action("Validate an OAuth callback", oauth_validate_callback),
     Action("Exchange an OAuth authorization code", oauth_exchange_token, True),

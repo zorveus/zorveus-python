@@ -37,6 +37,9 @@ def main() -> None:
     )
     print(f"Status:              {profile.status}")
     print(f"External User ID:    {profile.external_user_id}")
+    print(f"Available Allowance: ${profile.get_available_allowance()}")
+    print(f"Total Credits:       ${profile.get_total_credits()}")
+    print(f"Cap Spent:           ${profile.get_cap_spent()}")
 
     print("\n=== 3. Querying Credit Summary (Before Grant) ===")
     initial_summary = service.product_users.get_credit_summary_by_external_id(
